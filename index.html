@@ -196,7 +196,7 @@
       border-radius: 999px;
       border: 1px solid #4b5563;
       background: #020617;
-      color: #text-main;
+      color: var(--text-main);
       font-size: 12px;
       padding: 6px 12px;
     }
@@ -293,8 +293,8 @@
       box-shadow: 0 16px 32px rgba(0, 0, 0, 0.8);
       font-size: 11px;
       min-width: 150px;
-      z-index: 9999;             /* always on top */
-      pointer-events: none;      /* don't block map clicks */
+      z-index: 9999;
+      pointer-events: none;
     }
 
     .map-legend-title {
@@ -398,8 +398,8 @@
 
           <label>Years</label>
           <div class="year-row">
-            <div style="flex:1;">
-              <small class="field-caption">Year A (before / start)</small>
+            <div id="yearA-container" style="flex:1;">
+              <small class="field-caption">Year (single) / Year A (before / start)</small>
               <select id="yearA">
                 <option>2017</option>
                 <option>2018</option>
@@ -411,7 +411,7 @@
                 <option>2024</option>
               </select>
             </div>
-            <div style="flex:1;">
+            <div id="yearB-container" style="flex:1;">
               <small class="field-caption">Year B (after / end)</small>
               <select id="yearB">
                 <option>2017</option>
@@ -504,17 +504,16 @@
     </main>
   </div>
 
-    <script
+  <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
 
   <script>
-    // Same backend host
     const API_BASE = "";
 
-    // --- Dynamic World legend data ---
+    // Legend data
     const DW_CLASSES = [
       { label: "Water",               color: "#419bdf" },
       { label: "Trees",               color: "#397d49" },
@@ -540,21 +539,22 @@
         ${items}
       `;
     }
-
     buildLegend();
 
-    // ---- Leaflet: TWO MAPS (Before / After) ----
     const yearsFromDom = Array.from(document.querySelectorAll("#yearA option"))
       .map(o => parseInt(o.value, 10))
       .filter(n => !Number.isNaN(n));
 
     const defaultCenter = [26.3, 55.28];
 
-    // Only ORIGINAL SATELLITE as base map
     const SAT_URL  = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
-    // Map A (before)
+    // Base maps (original satellite)
     const satelliteA = L.tileLayer(SAT_URL, {
+      attribution: "Esri & others",
+      maxZoom: 19
+    });
+    const satelliteB = L.tileLayer(SAT_URL, {
       attribution: "Esri & others",
       maxZoom: 19
     });
@@ -562,13 +562,7 @@
     const mapA = L.map("mapA", {
       center: defaultCenter,
       zoom: 3,
-      layers: [satelliteA]   // default = original satellite
-    });
-
-    // Map B (after)
-    const satelliteB = L.tileLayer(SAT_URL, {
-      attribution: "Esri & others",
-      maxZoom: 19
+      layers: [satelliteA]
     });
 
     const mapB = L.map("mapB", {
@@ -577,19 +571,32 @@
       layers: [satelliteB]
     });
 
-    // Dynamic World + Change Detection overlays
     let dwLayerA = null;
     let dwLayerB = null;
     let dwLayerChangeA = null;
     let dwLayerChangeB = null;
-
-    // Layer controls for each map
     let layerControlA = null;
     let layerControlB = null;
 
     function currentMode() {
       const r = document.querySelector('input[name="mode"]:checked');
       return r ? r.value : "change_detection";
+    }
+
+    // show/hide Year B depending on mode
+    function updateYearUIForMode() {
+      const mode = currentMode();
+      const aBox = document.getElementById("yearA-container");
+      const bBox = document.getElementById("yearB-container");
+      if (mode === "single_year") {
+        bBox.style.display = "none";
+        aBox.style.flex = "1 1 100%";
+        const yearAVal = document.getElementById("yearA").value;
+        document.getElementById("yearB").value = yearAVal;
+      } else {
+        bBox.style.display = "block";
+        aBox.style.flex = "1";
+      }
     }
 
     function modeToLabel(v) {
@@ -608,7 +615,7 @@
       };
     }
 
-    // ---- Chat → controls logic (years, mode, location) ----
+    // Chat → controls (years, mode, location)
     function applyChatTextToControls(text) {
       const t = text.toLowerCase().trim();
       if (!t) return;
@@ -622,14 +629,12 @@
       const defaultYearA = ALL_YEARS[Math.max(0, lastIndex - 1)];
       const defaultYearB = ALL_YEARS[lastIndex];
 
-      // reset
       if (t.includes("reset") && (t.includes("map") || t.includes("settings") || t.includes("all"))) {
         document.querySelector('input[name="mode"][value="change_detection"]').checked = true;
         yearSelectA.value = String(defaultYearA);
         yearSelectB.value = String(defaultYearB);
       }
 
-      // swap years
       if ((t.includes("swap") || t.includes("switch") || t.includes("reverse") || t.includes("flip")) && t.includes("year")) {
         const oldA = yearSelectA.value;
         const oldB = yearSelectB.value;
@@ -637,7 +642,6 @@
         yearSelectB.value = oldA;
       }
 
-      // next / previous year
       if (t.includes("next year")) {
         const curB = parseInt(yearSelectB.value, 10);
         const idx = ALL_YEARS.indexOf(curB);
@@ -654,7 +658,6 @@
         }
       }
 
-      // mode selection
       if (t.includes("change detection") || t.includes("change analysis") || t.includes("difference")) {
         document.querySelector('input[name="mode"][value="change_detection"]').checked = true;
       } else if (t.includes("time series") || t.includes("timeseries") || t.includes("timeline")) {
@@ -663,7 +666,6 @@
         document.querySelector('input[name="mode"][value="single_year"]').checked = true;
       }
 
-      // numeric years in text
       const found = Array.from(t.matchAll(/\b(19[0-9]{2}|20[0-9]{2})\b/g))
         .map(m => parseInt(m[1], 10))
         .filter(y => ALL_YEARS.includes(y));
@@ -683,14 +685,12 @@
         }
       }
 
-      // "set location to Dubai"
       const locMatch = t.match(/(?:set|change)\s+(?:city|location|region)\s+to\s+(.+)/);
       if (locMatch && locMatch[1]) {
         cityInput.value = locMatch[1].trim();
         return;
       }
 
-      // short city-only message: "dubai", "abu dhabi", "berlin"
       const controlWords = ["year", "map", "mode", "reset", "swap", "change detection", "time series", "single year"];
       const hasControlWord = controlWords.some(w => t.includes(w));
       const hasDigits = /\d/.test(t);
@@ -701,7 +701,6 @@
       }
     }
 
-    // ---- Map config from backend + layer control with 3 options ----
     async function loadMapFromBackend() {
       const state = getUIState();
 
@@ -723,7 +722,6 @@
         mapA.setView(center, 11);
         mapB.setView(center, 11);
 
-        // remove old overlays
         if (dwLayerA) { mapA.removeLayer(dwLayerA); dwLayerA = null; }
         if (dwLayerChangeA) { mapA.removeLayer(dwLayerChangeA); dwLayerChangeA = null; }
         if (dwLayerB) { mapB.removeLayer(dwLayerB); dwLayerB = null; }
@@ -737,7 +735,6 @@
         const labelA = document.getElementById("map-panel-a-label");
         const labelB = document.getElementById("map-panel-b-label");
 
-        // --- add new overlays ---
         if (mode === "change_detection") {
           panelA.style.display = "flex";
           panelB.style.display = "flex";
@@ -779,11 +776,8 @@
           }
         }
 
-        // --- rebuild layer controls so they show exactly:
-        // "Original Satellite", "Dynamic World", "Change Detection"
-        if (layerControlA) {
-          mapA.removeControl(layerControlA);
-        }
+        // layer controls: Original Satellite / Dynamic World / Change Detection
+        if (layerControlA) mapA.removeControl(layerControlA);
         const baseA = { "Original Satellite": satelliteA };
         const overlaysA = {};
         if (dwLayerA) overlaysA["Dynamic World"] = dwLayerA;
@@ -791,16 +785,13 @@
         layerControlA = L.control.layers(baseA, overlaysA, { position: "topleft" }).addTo(mapA);
 
         if (mode === "change_detection") {
-          if (layerControlB) {
-            mapB.removeControl(layerControlB);
-          }
+          if (layerControlB) mapB.removeControl(layerControlB);
           const baseB = { "Original Satellite": satelliteB };
           const overlaysB = {};
           if (dwLayerB) overlaysB["Dynamic World"] = dwLayerB;
           if (dwLayerChangeB) overlaysB["Change Detection"] = dwLayerChangeB;
           layerControlB = L.control.layers(baseB, overlaysB, { position: "topleft" }).addTo(mapB);
         } else {
-          // in non-change modes we can hide the second control
           if (layerControlB) {
             mapB.removeControl(layerControlB);
             layerControlB = null;
@@ -826,12 +817,17 @@
     document.getElementById("city").addEventListener("blur", loadMapFromBackend);
     document
       .querySelectorAll('input[name="mode"]')
-      .forEach(r => r.addEventListener("change", loadMapFromBackend));
+      .forEach(r =>
+        r.addEventListener("change", () => {
+          updateYearUIForMode();
+          loadMapFromBackend();
+        })
+      );
 
     // Initial load
+    updateYearUIForMode();
     loadMapFromBackend();
 
-    // ---- Chat ----
     function appendMessage(role, text) {
       const container = document.getElementById("chat-messages");
       const msg = document.createElement("div");
@@ -852,8 +848,8 @@
 
       appendMessage("user", text);
 
-      // Chat controls (years, mode, location)
       applyChatTextToControls(text);
+      updateYearUIForMode();
       await loadMapFromBackend();
 
       const state = getUIState();
