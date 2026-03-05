@@ -17,7 +17,14 @@ from chat_utils import ask_chatbot       # must exist in this folder
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 app = FastAPI()
+# Serve static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Root route serves index.html
+@app.get("/")
+def serve_frontend():
+    return FileResponse("index.html")
+    
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],   # can restrict later
