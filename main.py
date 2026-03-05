@@ -14,7 +14,8 @@ from config import YEARS, LOCATION_LAT, LOCATION_LON, LOCATION_NAME
 from gee_utils import get_dw_tile_urls   # must exist in this folder
 from chat_utils import ask_chatbot       # must exist in this folder
 
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 app = FastAPI()
 
 app.add_middleware(
