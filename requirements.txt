@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+openai
+earthengine-api
+geopy
+pydantic
