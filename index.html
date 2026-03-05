@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EarthMonitor – Dynamic World Change Detection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    :root {
+      --bg-main: #111827;
+      --bg-nav: #111827;
+      --bg-panel: #1f2933;
+      --bg-bottom: #111827;
+      --border-subtle: #374151;
+      --accent: #3b82f6;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --text-soft: #9ca3af;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: radial-gradient(circle at top left, #111827, #020617);
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body { display: flex; justify-content: center; }
+
+    .app-shell {
+      width: 100%;
+      max-width: 1380px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* TOP BAR */
+    header.top-bar {
+      height: 72px;
+      background: var(--bg-nav);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+
+    .top-brand { display: flex; flex-direction: column; gap: 2px; }
+
+    .top-brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .top-brand-subtitle { font-size: 12px; color: var(--text-soft); }
+    .top-right-text { font-size: 11px; color: var(--text-soft); }
+
+    /* MAIN GRID */
+    main.app-main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "sidebar right"
+        "bottom bottom";
+      column-gap: 18px;
+      row-gap: 12px;
+      padding: 14px 24px 12px;
+    }
+
+    @media (max-width: 1024px) {
+      main.app-main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+          "sidebar"
+          "right"
+          "bottom";
+      }
+    }
+
+    /* LEFT SIDEBAR */
+    aside.sidebar {
+      grid-area: sidebar;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      height: 100%;
+    }
+
+    .monitor-box, .chatbot-box {
+      background: var(--bg-panel);
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
+      padding: 14px 14px 12px;
+    }
+
+    .monitor-box { flex: 0 0 auto; }
+    .chatbot-box { flex: 1 1 auto; display: flex; flex-direction: column; }
+
+    .monitor-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .monitor-subtitle { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+
+    .monitor-radios { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+
+    .monitor-radio {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; cursor: pointer;
+    }
+
+    .monitor-radio input[type="radio"] {
+      width: 14px; height: 14px; accent-color: var(--accent);
+    }
+
+    label {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .year-row { display: flex; gap: 8px; margin-top: 6px; }
+
+    select, input[type="text"] {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: var(--text-main);
+      font-size: 12px;
+      padding: 6px 10px;
+      outline: none;
+    }
+
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+    }
+
+    .field-caption { font-size: 10px; color: var(--text-soft); margin-top: 4px; }
+    .monitor-divider { border-top: 1px solid #111827; margin: 10px 0 8px; }
+
+    /* Chatbot card */
+    .chatbot-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px; font-size: 13px; font-weight: 600;
+    }
+
+    .chat-toggle {
+      background: none; border: none; color: var(--text-soft);
+      font-size: 16px; cursor: pointer; padding: 0;
+    }
+
+    .chat-messages {
+      border-radius: 10px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      padding: 8px;
+      flex: 1;
+      overflow-y: auto;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .message { margin-bottom: 6px; }
+
+    .bubble {
+      padding: 6px 8px;
+      border-radius: 10px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      max-width: 100%;
+      font-size: 12px;
+    }
+
+    .message.bot .bubble { background: #111827; color: #e5e7eb; }
+    .message.user .bubble { background: #2563eb; color: #e5e7eb; }
+
+    .chat-form { display: flex; gap: 6px; margin-top: auto; }
+
+    .chat-input {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: var(--text-main);
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+
+    .chat-input::placeholder { color: #6b7280; }
+
+    .chat-send {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      background: #3b82f6;
+      color: #ffffff;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .chat-send:hover {
+      box-shadow: 0 8px 18px rgba(59, 130, 246, 0.55);
+      transform: translateY(-0.5px);
+    }
+
+    /* RIGHT AREA */
+    .right-area {
+      grid-area: right;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .map-container {
+      position: relative;
+      flex: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #374151;
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.75);
+      background: #020617;
+    }
+
+    #map { width: 100%; height: 100%; }
+
+    .map-overlay-badge {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.9);
+      font-size: 10px;
+      color: #e5e7eb;
+      backdrop-filter: blur(6px);
+    }
+
+    /* REPORT STRIP */
+    .report-analysis {
+      background: var(--bg-bottom);
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      padding: 10px 14px;
+      font-size: 11px;
+      display: grid;
+      grid-template-columns: 160px 210px 160px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .report-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-soft);
+      margin-bottom: 2px;
+    }
+
+    .report-value { font-size: 12px; color: #e5e7eb; }
+    .report-value.link { color: #38bdf8; }
+    .report-text { font-size: 11px; color: var(--text-muted); }
+
+    @media (max-width: 900px) {
+      .report-analysis {
+        grid-template-columns: 1fr 1fr;
+        row-gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="top-bar">
+      <div class="top-brand">
+        <div class="top-brand-title">EarthMonitor</div>
+        <div class="top-brand-subtitle">Real-time environmental monitoring</div>
+      </div>
+      <div class="top-right-text">
+        Dynamic World · Google Earth Engine · OpenAI Assistant
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- LEFT SIDEBAR -->
+      <aside class="sidebar">
+        <section class="monitor-box">
+          <div class="monitor-title">Monitor Functions</div>
+          <div class="monitor-subtitle">
+            Choose how to explore changes in your region.
+          </div>
+
+          <div class="monitor-radios">
+            <label class="monitor-radio">
+              <input type="radio" name="mode" value="change_detection" checked />
+              <span>Change Detection</span>
+            </label>
+            <label class="monitor-radio">
+              <input type="radio" name="mode" value="single_year" />
+              <span>Single Year Map</span>
+            </label>
+            <label class="monitor-radio">
+              <input type="radio" name="mode" value="timeseries" />
+              <span>Time Series</span>
+            </label>
+          </div>
+
+          <div class="monitor-divider"></div>
+
+          <label>Years</label>
+          <div class="year-row">
+            <div style="flex:1;">
+              <small class="field-caption">Year A (before / start)</small>
+              <select id="yearA">
+                <option>2017</option>
+                <option>2018</option>
+                <option>2019</option>
+                <option selected>2020</option>
+                <option>2021</option>
+                <option>2022</option>
+                <option>2023</option>
+                <option>2024</option>
+              </select>
+            </div>
+            <div style="flex:1;">
+              <small class="field-caption">Year B (after / end)</small>
+              <select id="yearB">
+                <option>2017</option>
+                <option>2018</option>
+                <option>2019</option>
+                <option>2020</option>
+                <option>2021</option>
+                <option selected>2022</option>
+                <option>2023</option>
+                <option>2024</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="monitor-divider"></div>
+
+          <label for="city">Region (city name)</label>
+          <input id="city" type="text" placeholder="Abu Dhabi, Dubai, Berlin..." />
+          <div class="field-caption">
+            Backend: geocode this city → update Earth Engine point + map tiles.
+          </div>
+        </section>
+
+        <section class="chatbot-box">
+          <div class="chatbot-header">
+            <span>Assistant</span>
+            <button type="button" class="chat-toggle" aria-label="Toggle chat">−</button>
+          </div>
+
+          <div class="chat-messages" id="chat-messages">
+            <div class="message bot">
+              <div class="bubble bot">
+                Hi! I can help you explore Dynamic World land cover and describe
+                the changes between your selected years and region.
+              </div>
+            </div>
+          </div>
+
+          <form class="chat-form" onsubmit="handleChatSubmit(event)">
+            <input
+              type="text"
+              id="chat-input"
+              class="chat-input"
+              placeholder="Ask about the map or data..."
+              autocomplete="off"
+            />
+            <button type="submit" class="chat-send">Send</button>
+          </form>
+        </section>
+      </aside>
+
+      <!-- RIGHT AREA -->
+      <div class="right-area">
+        <div class="map-container">
+          <div id="map"></div>
+          <div class="map-overlay-badge">Live</div>
+        </div>
+
+        <section class="report-analysis">
+          <div>
+            <div class="report-label">Current layer</div>
+            <div class="report-value" id="report-layer">Change Detection</div>
+          </div>
+          <div>
+            <div class="report-label">Selected region</div>
+            <div class="report-value link" id="report-region">Abu Dhabi (example)</div>
+          </div>
+          <div>
+            <div class="report-label">Years</div>
+            <div class="report-value" id="report-years">2020 → 2022</div>
+          </div>
+          <div>
+            <div class="report-label">Summary</div>
+            <div class="report-text" id="report-summary">
+              Change detection report will appear here once you chat with the assistant.
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    // CHANGE THIS to your Render backend URL after deployment
+    // Example: "https://earthmonitor-api.onrender.com"
+    const API_BASE = "http://127.0.0.1:8000";
+    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    // Leaflet base map
+    const map = L.map("map").setView([26.3, 55.28], 3);
+
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> ' +
+          "&copy; <a href='https://carto.com/attributions'>CARTO</a>",
+        maxZoom: 19
+      }
+    ).addTo(map);
+
+    let dwLayerA = null;
+    let dwLayerB = null;
+    let dwLayerChange = null;
+
+    function currentMode() {
+      const r = document.querySelector('input[name="mode"]:checked');
+      return r ? r.value : "change_detection";
+    }
+
+    function modeToLabel(v) {
+      if (v === "change_detection") return "Change Detection";
+      if (v === "single_year") return "Single Year Map";
+      if (v === "timeseries") return "Time Series";
+      return v;
+    }
+
+    function getUIState() {
+      return {
+        mode: currentMode(),
+        year_a: parseInt(document.getElementById("yearA").value, 10),
+        year_b: parseInt(document.getElementById("yearB").value, 10),
+        city: document.getElementById("city").value || ""
+      };
+    }
+
+    async function loadMapFromBackend() {
+      const state = getUIState();
+
+      try {
+        const res = await fetch(`${API_BASE}/map-config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state),
+        });
+
+        if (!res.ok) {
+          console.error("Map config error", await res.text());
+          return;
+        }
+
+        const data = await res.json();
+
+        map.setView([data.center_lat, data.center_lon], 11);
+
+        if (dwLayerA) { map.removeLayer(dwLayerA); dwLayerA = null; }
+        if (dwLayerB) { map.removeLayer(dwLayerB); dwLayerB = null; }
+        if (dwLayerChange) { map.removeLayer(dwLayerChange); dwLayerChange = null; }
+
+        const tiles = data.tiles || {};
+        if (state.mode === "single_year") {
+          if (tiles.a) {
+            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.85 });
+            dwLayerA.addTo(map);
+          }
+        } else {
+          if (tiles.a) {
+            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.8 });
+            dwLayerA.addTo(map);
+          }
+          if (tiles.b) {
+            dwLayerB = L.tileLayer(tiles.b, { opacity: 0.8 });
+            dwLayerB.addTo(map);
+          }
+          if (tiles.change) {
+            dwLayerChange = L.tileLayer(tiles.change, { opacity: 0.7 });
+            dwLayerChange.addTo(map);
+          }
+        }
+
+        document.getElementById("report-layer").textContent = modeToLabel(data.mode);
+        document.getElementById("report-region").textContent = data.city;
+        document.getElementById("report-years").textContent =
+          data.year_a + " → " + data.year_b;
+      } catch (err) {
+        console.error("Error calling /map-config", err);
+      }
+    }
+
+    document.getElementById("yearA").addEventListener("change", loadMapFromBackend);
+    document.getElementById("yearB").addEventListener("change", loadMapFromBackend);
+    document.getElementById("city").addEventListener("blur", loadMapFromBackend);
+    document
+      .querySelectorAll('input[name="mode"]')
+      .forEach(r => r.addEventListener("change", loadMapFromBackend));
+
+    loadMapFromBackend(); // initial
+
+    // Chat
+    function appendMessage(role, text) {
+      const container = document.getElementById("chat-messages");
+      const msg = document.createElement("div");
+      msg.className = "message " + role;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + role;
+      bubble.textContent = text;
+      msg.appendChild(bubble);
+      container.appendChild(msg);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("chat-input");
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendMessage("user", text);
+
+      const state = getUIState();
+
+      try {
+        const res = await fetch(`${API_BASE}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            mode: state.mode,
+            year_a: state.year_a,
+            year_b: state.year_b,
+            city: state.city,
+          }),
+        });
+
+        if (!res.ok) {
+          console.error("Chat error", await res.text());
+          appendMessage("bot", "Sorry, something went wrong talking to the backend.");
+          return;
+        }
+
+        const data = await res.json();
+        appendMessage("bot", data.reply || "(empty reply)");
+
+        if (data.summary) {
+          document.getElementById("report-summary").textContent = data.summary;
+        }
+      } catch (err) {
+        console.error("Error calling /chat", err);
+        appendMessage("bot", "Sorry, I couldn't reach the server.");
+      }
+
+      input.value = "";
+    }
+  </script>
+</body>
+</html>
