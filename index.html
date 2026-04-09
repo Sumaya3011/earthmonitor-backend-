@@ -514,6 +514,9 @@
       border: none;
       background: #020617;
       padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
     @media (min-width: 768px) {
@@ -527,7 +530,8 @@
       flex-direction: column;
       gap: 8px;
       width: 100%;
-      height: 100%;
+      flex: 1;
+      min-height: 0;
     }
 
     .map-grid-row {
@@ -673,6 +677,7 @@
     .map-inner {
       flex: 1;
       min-height: 120px;
+      position: relative;
     }
 
     #mapA,
@@ -728,13 +733,52 @@
       color: #e5e7eb;
     }
 
-    /* —— Report dock over map —— */
-    .report-analysis {
+    .video-preview {
       position: absolute;
-      left: 8px;
-      right: 8px;
-      bottom: 8px;
-      z-index: 900;
+      inset: 0;
+      z-index: 680;
+      background: rgba(2, 6, 23, 0.96);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .video-preview[hidden] {
+      display: none !important;
+    }
+
+    .video-preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .video-preview-close {
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      background: rgba(30, 41, 59, 0.9);
+      color: #e5e7eb;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .video-preview video {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      background: #000;
+      object-fit: contain;
+    }
+
+    /* —— Report section below map (change mode only) —— */
+    .report-analysis {
       background: rgba(15, 23, 42, 0.94);
       border-radius: 14px;
       border: 1px solid var(--border-subtle);
@@ -745,19 +789,20 @@
       gap: 10px 12px;
       align-items: start;
       backdrop-filter: blur(12px);
-      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
       pointer-events: auto;
-      max-height: 28vh;
+      max-height: 32vh;
       overflow-y: auto;
+    }
+
+    .report-analysis[hidden] {
+      display: none !important;
     }
 
     @media (min-width: 900px) {
       .report-analysis {
         grid-template-columns: 140px 160px 120px minmax(0, 1fr);
         max-height: none;
-        left: 12px;
-        right: 12px;
-        bottom: max(72px, env(safe-area-inset-bottom, 16px));
       }
     }
 
@@ -788,6 +833,56 @@
       -webkit-line-clamp: 3;
       line-clamp: 3;
       -webkit-box-orient: vertical;
+    }
+
+    .sample-chart {
+      grid-column: 1 / -1;
+      background: rgba(2, 6, 23, 0.58);
+      border: 1px solid rgba(51, 65, 85, 0.92);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .sample-chart-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #93c5fd;
+      margin-bottom: 8px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 110px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .chart-label {
+      color: #cbd5e1;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .chart-bar-wrap {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(51, 65, 85, 0.9);
+      overflow: hidden;
+    }
+
+    .chart-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #38bdf8, #22c55e);
+    }
+
+    .chart-val {
+      color: #e2e8f0;
+      font-size: 10px;
+      min-width: 36px;
+      text-align: right;
     }
 
     .leaflet-control-layers {
@@ -924,7 +1019,16 @@
                 <span class="map-panel-title" id="map-panel-a-label">Map</span>
                 <button type="button" class="map-download-btn" id="btn-download-map-a">Download</button>
               </div>
-              <div class="map-inner"><div id="mapA"></div></div>
+              <div class="map-inner">
+                <div id="mapA"></div>
+                <div class="video-preview" id="video-preview" hidden>
+                  <div class="video-preview-head">
+                    <span id="video-preview-title">Time series preview</span>
+                    <button type="button" class="video-preview-close" id="video-preview-close">Close</button>
+                  </div>
+                  <video id="video-preview-player" controls autoplay loop muted playsinline></video>
+                </div>
+              </div>
             </div>
             <div class="map-panel" id="map-panel-b">
               <div class="map-panel-header map-panel-header-row">
@@ -945,7 +1049,7 @@
         <div class="map-legend" id="map-legend"></div>
       </div>
 
-      <section class="report-analysis">
+      <section class="report-analysis" id="report-analysis" hidden>
         <div>
           <div class="report-label">Current layer</div>
           <div class="report-value" id="report-layer">Home</div>
@@ -964,6 +1068,24 @@
             Change detection report will appear here once you chat with the assistant.
           </div>
         </div>
+        <div class="sample-chart">
+          <div class="sample-chart-title">Example change stats (placeholder)</div>
+          <div class="chart-row">
+            <span class="chart-label">Vegetation loss</span>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="width: 34%;"></div></div>
+            <span class="chart-val">34%</span>
+          </div>
+          <div class="chart-row">
+            <span class="chart-label">Built-up gain</span>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="width: 21%;"></div></div>
+            <span class="chart-val">21%</span>
+          </div>
+          <div class="chart-row">
+            <span class="chart-label">Water shift</span>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="width: 8%;"></div></div>
+            <span class="chart-val">8%</span>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -978,6 +1100,7 @@
   <script>
     const API_BASE = "";
     let lastMapData = null;
+    let lastVideoUrl = null;
 
     const DW_CLASSES = [
       { label: "Water", color: "#419bdf" },
@@ -1091,6 +1214,30 @@
     function updateVideoToolsVisibility() {
       const tools = document.getElementById("video-tools");
       tools.style.display = currentMode() === "timeseries" ? "block" : "none";
+    }
+
+    function showVideoPreview(url, title) {
+      const wrap = document.getElementById("video-preview");
+      const player = document.getElementById("video-preview-player");
+      const titleEl = document.getElementById("video-preview-title");
+      if (!wrap || !player) return;
+      if (lastVideoUrl && lastVideoUrl !== url) {
+        URL.revokeObjectURL(lastVideoUrl);
+      }
+      lastVideoUrl = url;
+      player.src = url;
+      player.load();
+      player.play().catch(() => {});
+      titleEl.textContent = title || "Time series preview";
+      wrap.hidden = false;
+    }
+
+    function hideVideoPreview() {
+      const wrap = document.getElementById("video-preview");
+      const player = document.getElementById("video-preview-player");
+      if (!wrap || !player) return;
+      wrap.hidden = true;
+      player.pause();
     }
 
     function modeToLabel(v) {
@@ -1233,6 +1380,7 @@
         const panelA = document.getElementById("map-panel-a");
         const panelB = document.getElementById("map-panel-b");
         const panelC = document.getElementById("map-panel-c");
+        const reportPanel = document.getElementById("report-analysis");
         const labelA = document.getElementById("map-panel-a-label");
         const labelB = document.getElementById("map-panel-b-label");
         const labelC = document.getElementById("map-panel-c-label");
@@ -1251,6 +1399,7 @@
           mapGridRoot.classList.add("has-change-row");
           panelB.hidden = false;
           panelC.hidden = false;
+          reportPanel.hidden = false;
           panelA.style.display = "flex";
           panelB.style.display = "flex";
           labelA.textContent = `Before (${data.date_a_display} · Y${data.dw_year_a ?? ""})`;
@@ -1273,6 +1422,7 @@
           mapGridRoot.classList.remove("has-change-row");
           panelB.hidden = true;
           panelC.hidden = true;
+          reportPanel.hidden = true;
           panelA.style.display = "flex";
           panelB.style.display = "none";
           labelA.textContent =
@@ -1292,6 +1442,7 @@
           mapGridRoot.classList.remove("has-change-row");
           panelB.hidden = true;
           panelC.hidden = true;
+          reportPanel.hidden = true;
           panelA.style.display = "flex";
           panelB.style.display = "none";
           labelA.textContent =
@@ -1401,6 +1552,10 @@
         link.style.display = "inline-block";
         link.textContent = "Download video";
 
+        showVideoPreview(
+          url,
+          `Time series · ${String(state.date_a).slice(0, 4)} → ${String(state.date_b).slice(0, 4)}`
+        );
         status.textContent = "Video is ready.";
       } catch (err) {
         console.error(err);
@@ -1420,6 +1575,7 @@
     );
 
     document.getElementById("generate-video-btn").addEventListener("click", generateTimeSeriesVideo);
+    document.getElementById("video-preview-close").addEventListener("click", hideVideoPreview);
 
     document.getElementById("region-chip-clear").addEventListener("click", () => {
       document.getElementById("city").value = "";
