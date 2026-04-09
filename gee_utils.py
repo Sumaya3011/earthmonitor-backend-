@@ -2,79 +2,39 @@
 """
 Google Earth Engine / Dynamic World logic.
 
-This file:
-- Builds Dynamic World images for given years.
-- Builds a global recent mosaic (no regional filter).
-- Returns XYZ tile URLs that we can show in a Folium map.
+Builds per-day label mosaics and XYZ tile URLs for Leaflet.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, timedelta
 
 import ee
 
-from config import CLASS_PALETTE
+from config import CLASS_PALETTE, DW_MIN_DATE
 
-GLOBAL_LATEST_DAYS = 90
+# Full-world bounds (avoid poles where DW is sparse)
+WORLD_GEOM = ee.Geometry.Rectangle([-179.99, -58.0, 179.99, 85.0])
 
 
-def build_dynamic_world_image(point_geom: ee.Geometry, year: int):
+def _clamp_date(d: date, max_d: date | None = None) -> date:
+    max_d = max_d or date.today()
+    if d < DW_MIN_DATE:
+        return DW_MIN_DATE
+    if d > max_d:
+        return max_d
+    return d
+
+
+def build_dw_label_for_day(geom: ee.Geometry, day: date):
     """
-    Create a Dynamic World land cover ee.Image for a single year.
-
-    Returns:
-      (image, vis_params)
+    Per-pixel mode of Dynamic World ``label`` for one calendar day (UTC) inside ``geom``.
     """
-    start = f"{year}-01-01"
-    end = f"{year}-12-31"
-
-    # Dynamic World collection (GOOGLE/DYNAMICWORLD/V1)
-    dw_collection = (
-        ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1")
-        .filterDate(start, end)
-        .filterBounds(point_geom)
-    )
-
-    # 'label' band is the most likely class (0–8)
-    dw_image = dw_collection.select("label").mode()
-
-    vis_params = {
-        "min": 0,
-        "max": 8,
-        "palette": CLASS_PALETTE,
-    }
-
-    return dw_image, vis_params
-
-
-def _image_to_tile_url(image: ee.Image, vis_params: dict) -> str | None:
-    """
-    Convert an ee.Image + vis_params into an XYZ tile URL.
-
-    Returns:
-      A URL string like:
-        https://earthengine.googleapis.com/v1/projects/.../tiles/{z}/{x}/{y}
-      or None if something fails.
-    """
-    try:
-        # getMapId returns a dict with a TileFetcher under 'tile_fetcher'
-        map_id = image.getMapId(vis_params)
-        tile_url = map_id["tile_fetcher"].url_format
-        return tile_url
-    except Exception as e:
-        print("Error creating tile URL:", e)
-        return None
-
-
-def build_dynamic_world_global_latest(days_back: int = GLOBAL_LATEST_DAYS):
-    """
-    Global per-pixel mode of Dynamic World labels over the last ``days_back`` days (UTC).
-    No geometry filter — full-world mosaic.
-    """
-    end = ee.Date(datetime.now(timezone.utc))
-    start = end.advance(-days_back, "day")
+    day = _clamp_date(day)
+    start = day.isoformat()
+    end = (day + timedelta(days=1)).isoformat()
     dw_image = (
         ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1")
         .filterDate(start, end)
+        .filterBounds(geom)
         .select("label")
         .mode()
     )
@@ -86,42 +46,34 @@ def build_dynamic_world_global_latest(days_back: int = GLOBAL_LATEST_DAYS):
     return dw_image, vis_params
 
 
-def get_global_latest_tile_url(days_back: int = GLOBAL_LATEST_DAYS) -> str | None:
-    img, vis = build_dynamic_world_global_latest(days_back)
+def _image_to_tile_url(image: ee.Image, vis_params: dict) -> str | None:
+    try:
+        map_id = image.getMapId(vis_params)
+        return map_id["tile_fetcher"].url_format
+    except Exception as e:
+        print("Error creating tile URL:", e)
+        return None
+
+
+def tile_url_for_day(geom: ee.Geometry, day: date) -> str | None:
+    img, vis = build_dw_label_for_day(geom, day)
     return _image_to_tile_url(img, vis)
 
 
-def global_latest_period_caption(days_back: int = GLOBAL_LATEST_DAYS) -> str:
-    end_d = datetime.now(timezone.utc).date()
-    start_d = end_d - timedelta(days=days_back)
-    return f"Global · Dynamic World · {start_d.isoformat()} → {end_d.isoformat()} (UTC, ~{days_back}d mode)"
-
-
-def get_dw_tile_urls(point_geom: ee.Geometry, year_a: int, year_b: int) -> dict:
+def get_dw_tile_urls_for_geometry(geom: ee.Geometry, day_a: date, day_b: date) -> dict:
     """
-    Build tile URLs for:
-      - Dynamic World year A
-      - Dynamic World year B
-      - Change layer (A != B)
-
-    Returns:
-      {
-        "a": <url or None>,
-        "b": <url or None>,
-        "change": <url or None>,
-      }
+    Tile URLs for label mosaics on day_a, day_b, and a binary change layer.
     """
+    day_a = _clamp_date(day_a)
+    day_b = _clamp_date(day_b)
 
-    # Year A
-    img_a, vis = build_dynamic_world_image(point_geom, year_a)
+    img_a, vis = build_dw_label_for_day(geom, day_a)
     url_a = _image_to_tile_url(img_a, vis)
 
-    # Year B
-    img_b, _ = build_dynamic_world_image(point_geom, year_b)
-    url_b = _image_to_tile_url(img_b, vis)  # same vis as A
+    img_b, _ = build_dw_label_for_day(geom, day_b)
+    url_b = _image_to_tile_url(img_b, vis)
 
-    # Change: where class changed between A and B
-    change_img = img_a.neq(img_b)  # 1 where changed, 0 where same
+    change_img = img_a.neq(img_b)
     change_vis = {"min": 0, "max": 1, "palette": ["000000", "ff0000"]}
     url_change = _image_to_tile_url(change_img, change_vis)
 
@@ -130,3 +82,7 @@ def get_dw_tile_urls(point_geom: ee.Geometry, year_a: int, year_b: int) -> dict:
         "b": url_b,
         "change": url_change,
     }
+
+
+def regional_geom(point: ee.Geometry, buffer_m: float = 55000.0) -> ee.Geometry:
+    return point.buffer(buffer_m).bounds()

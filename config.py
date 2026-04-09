@@ -1,7 +1,12 @@
 # config.py
 
-# Years supported by your app (include as many as you want)
+from datetime import date
+
+# Years supported for legacy video/monthly framing (derived from map dates in the UI)
 YEARS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+# Earliest date allowed for Dynamic World day mosaics (collection coverage)
+DW_MIN_DATE = date(2018, 1, 1)
 
 # Default location (used when city is empty or geocoding fails)
 LOCATION_LAT = 24.4539   # Abu Dhabi latitude

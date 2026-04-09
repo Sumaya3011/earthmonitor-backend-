@@ -4,7 +4,7 @@ import os
 import io
 import math
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 
 import ee
@@ -26,8 +26,14 @@ from config import (
     LOCATION_LON,
     LOCATION_NAME,
     CLASS_PALETTE,
+    DW_MIN_DATE,
 )
-from gee_utils import get_dw_tile_urls, get_global_latest_tile_url, global_latest_period_caption
+from gee_utils import (
+    WORLD_GEOM,
+    regional_geom,
+    get_dw_tile_urls_for_geometry,
+    tile_url_for_day,
+)
 from chat_utils import ask_chatbot
 
 # ---------------------------------------------------------------------
@@ -99,16 +105,16 @@ async def startup_event():
 # ---------------------------------------------------------------------
 class MapRequest(BaseModel):
     mode: str
-    year_a: int
-    year_b: int
+    date_a: Optional[str] = None
+    date_b: Optional[str] = None
     city: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
     message: str
     mode: str
-    year_a: int
-    year_b: int
+    date_a: Optional[str] = None
+    date_b: Optional[str] = None
     city: Optional[str] = None
 
 
@@ -125,6 +131,28 @@ class VideoRequest(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------
 geolocator = Nominatim(user_agent="dw-change-app")
+
+
+def parse_iso_date(s: Optional[str]) -> date:
+    if not s or not str(s).strip():
+        return date.today() - timedelta(days=2)
+    try:
+        return date.fromisoformat(str(s).strip()[:10])
+    except ValueError:
+        return date.today() - timedelta(days=2)
+
+
+def clamp_map_date(d: date) -> date:
+    today = date.today()
+    if d < DW_MIN_DATE:
+        return DW_MIN_DATE
+    if d > today:
+        return today
+    return d
+
+
+def display_date(d: date) -> str:
+    return d.strftime("%d %b %Y")
 
 
 def resolve_city(city: Optional[str]):
@@ -236,42 +264,57 @@ def map_config(req: MapRequest):
         )
 
     mode = req.mode
-    year_a = req.year_a
-    year_b = req.year_b
+    da = clamp_map_date(parse_iso_date(req.date_a))
+    db = clamp_map_date(parse_iso_date(req.date_b))
+    if db < da:
+        da, db = db, da
 
-    if year_a not in YEARS:
-        year_a = YEARS[0]
-    if year_b not in YEARS:
-        year_b = YEARS[-1]
+    if mode == "home":
+        if not req.city or not str(req.city).strip():
+            url = tile_url_for_day(WORLD_GEOM, da)
+            return {
+                "city": "World",
+                "center_lat": 15.0,
+                "center_lon": 0.0,
+                "date_a": da.isoformat(),
+                "date_b": da.isoformat(),
+                "date_a_display": display_date(da),
+                "date_b_display": display_date(da),
+                "mode": mode,
+                "tiles": {"a": url, "b": None, "change": None},
+                "map_zoom": 2,
+            }
 
-    city_name, lat, lon = resolve_city(req.city)
-    location_point = ee.Geometry.Point([lon, lat])
-
-    if mode == "global_latest":
-        url = get_global_latest_tile_url()
+        city_name, lat, lon = resolve_city(req.city)
+        point = ee.Geometry.Point([lon, lat])
+        geom = regional_geom(point)
+        url = tile_url_for_day(geom, da)
         return {
-            "city": "Global",
-            "center_lat": 15.0,
-            "center_lon": 0.0,
-            "year_a": year_a,
-            "year_b": year_b,
+            "city": city_name,
+            "center_lat": lat,
+            "center_lon": lon,
+            "date_a": da.isoformat(),
+            "date_b": da.isoformat(),
+            "date_a_display": display_date(da),
+            "date_b_display": display_date(da),
             "mode": mode,
             "tiles": {"a": url, "b": None, "change": None},
-            "map_zoom": 2,
-            "global_latest_label": global_latest_period_caption(),
+            "map_zoom": 11,
         }
 
-    if mode == "single_year":
-        tiles = get_dw_tile_urls(location_point, year_a, year_a)
-    else:
-        tiles = get_dw_tile_urls(location_point, year_a, year_b)
+    city_name, lat, lon = resolve_city(req.city)
+    point = ee.Geometry.Point([lon, lat])
+    geom = regional_geom(point)
+    tiles = get_dw_tile_urls_for_geometry(geom, da, db)
 
     return {
         "city": city_name,
         "center_lat": lat,
         "center_lon": lon,
-        "year_a": year_a,
-        "year_b": year_b,
+        "date_a": da.isoformat(),
+        "date_b": db.isoformat(),
+        "date_a_display": display_date(da),
+        "date_b_display": display_date(db),
         "mode": mode,
         "tiles": tiles,
     }
@@ -283,18 +326,21 @@ def map_config(req: MapRequest):
 @app.post("/chat")
 def chat(req: ChatRequest):
     city_name, lat, lon = resolve_city(req.city)
+    da = clamp_map_date(parse_iso_date(req.date_a))
+    db = clamp_map_date(parse_iso_date(req.date_b))
 
     system_msg = {
         "role": "system",
         "content": (
             "You are a helpful assistant that explains Dynamic World land cover "
             "maps and changes over time in SIMPLE language. "
-            "The app has modes: global_latest (world map, recent Dynamic World mosaic), "
-            "change_detection, single_year, timeseries, prediction. "
+            "The app uses calendar dates (day–month–year) for Dynamic World daily mosaics. "
+            "Modes: home (single map; world view if no region, else zoomed region), "
+            "change_detection (two maps, date A vs B), timeseries, prediction. "
             "In prediction mode the map shows the same historical A/B/change layers as time series; "
             "your job is to discuss plausible future land-cover outcomes qualitatively, "
             "not as a numerical forecast, unless the user asks for general education. "
-            f"Current mode: {req.mode}, years: {req.year_a}–{req.year_b}. "
+            f"Current mode: {req.mode}, date A: {display_date(da)}, date B: {display_date(db)}. "
             f"Current region: {city_name} at ({lat:.3f}, {lon:.3f}). "
             "Return your answer STRICTLY as JSON with two keys: "
             "'explanation' and 'summary'. "

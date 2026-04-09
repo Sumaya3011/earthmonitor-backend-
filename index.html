@@ -454,7 +454,8 @@
     }
 
     select,
-    input[type="text"] {
+    input[type="text"],
+    input[type="date"] {
       width: 100%;
       border-radius: 10px;
       border: 1px solid rgba(71, 85, 105, 0.95);
@@ -463,10 +464,12 @@
       font-size: 12px;
       padding: 8px 10px;
       outline: none;
+      color-scheme: dark;
     }
 
     select:focus,
-    input[type="text"]:focus {
+    input[type="text"]:focus,
+    input[type="date"]:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px var(--accent-glow);
     }
@@ -553,6 +556,84 @@
       border-bottom: 1px solid rgba(30, 41, 59, 0.9);
       background: rgba(15, 23, 42, 0.6);
       flex-shrink: 0;
+    }
+
+    .map-panel-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .map-panel-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .map-download-btn {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      background: rgba(37, 99, 235, 0.25);
+      color: #93c5fd;
+      cursor: pointer;
+    }
+
+    .map-download-btn:hover {
+      background: rgba(59, 130, 246, 0.4);
+      color: #e0e7ff;
+    }
+
+    .region-chip-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .region-chip-wrap[hidden] {
+      display: none !important;
+    }
+
+    .region-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      font-size: 11px;
+      color: var(--text-main);
+    }
+
+    #region-chip-clear {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(239, 68, 68, 0.22);
+      color: #fca5a5;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    #region-chip-clear:hover {
+      background: rgba(239, 68, 68, 0.42);
+      color: #fff;
     }
 
     .map-inner {
@@ -726,7 +807,7 @@
         <div class="site-header-top">
           <div class="brand-block">
             <div class="top-brand-title">EarthMonitor</div>
-            <p class="top-brand-subtitle">Dynamic World land cover — use the assistant row, then map controls below.</p>
+            <p class="top-brand-subtitle">Dynamic World by day — Home shows one map (world or your region). Pick dates and modes below.</p>
           </div>
           <p class="brand-meta">Dynamic World · Earth Engine · OpenAI</p>
         </div>
@@ -738,8 +819,8 @@
           </div>
           <div class="chat-messages" id="chat-messages">
             <div class="message bot">
-              <div class="bubble bot" title="Hi! I can help you explore Dynamic World land cover and describe the changes between your selected years and region.">
-                Hi! I can help you explore Dynamic World land cover and describe the changes between your selected years and region.
+              <div class="bubble bot" title="Hi! I can help you explore Dynamic World land cover using the dates and region you pick.">
+                Hi! I can help you explore Dynamic World land cover using the dates and region you pick.
               </div>
             </div>
           </div>
@@ -760,16 +841,12 @@
           <div class="monitor-toolbar">
             <div class="mode-segments" role="radiogroup" aria-label="Analysis mode">
             <label class="monitor-radio">
-              <input type="radio" name="mode" value="global_latest" checked />
-              <span>Global (latest)</span>
+              <input type="radio" name="mode" value="home" checked />
+              <span>Home</span>
             </label>
             <label class="monitor-radio">
               <input type="radio" name="mode" value="change_detection" />
               <span>Change</span>
-            </label>
-            <label class="monitor-radio">
-              <input type="radio" name="mode" value="single_year" />
-              <span>Single year</span>
             </label>
             <label class="monitor-radio">
               <input type="radio" name="mode" value="timeseries" />
@@ -781,41 +858,27 @@
             </label>
             </div>
             <div class="toolbar-fields">
-            <div class="toolbar-field" id="year-controls-row">
-              <label>Years</label>
+            <div class="toolbar-field" id="date-controls-row">
+              <label>Dates</label>
               <div class="year-row">
-                <div id="yearA-container" style="flex:1;">
-                  <small class="field-caption">Year A / start</small>
-                  <select id="yearA">
-                    <option>2017</option>
-                    <option>2018</option>
-                    <option>2019</option>
-                    <option selected>2020</option>
-                    <option>2021</option>
-                    <option>2022</option>
-                    <option>2023</option>
-                    <option>2024</option>
-                  </select>
+                <div id="dateA-container" style="flex:1;">
+                  <small class="field-caption">Date A (map day on Home)</small>
+                  <input type="date" id="dateA" min="2018-01-01" />
                 </div>
-                <div id="yearB-container" style="flex:1;">
-                  <small class="field-caption">Year B / end</small>
-                  <select id="yearB">
-                    <option>2017</option>
-                    <option>2018</option>
-                    <option>2019</option>
-                    <option>2020</option>
-                    <option>2021</option>
-                    <option selected>2022</option>
-                    <option>2023</option>
-                    <option>2024</option>
-                  </select>
+                <div id="dateB-container" style="flex:1;">
+                  <small class="field-caption">Date B (compare end)</small>
+                  <input type="date" id="dateB" min="2018-01-01" />
                 </div>
               </div>
             </div>
             <div class="toolbar-field city-field">
               <label for="city">Region</label>
-              <input id="city" type="text" placeholder="City or area…" />
-              <div class="field-caption">Tip: chat can set location too.</div>
+              <input id="city" type="text" placeholder="City or area… (optional on Home)" />
+              <div class="field-caption">Home: empty region = world view. Chat can set location.</div>
+              <div id="region-chip-wrap" class="region-chip-wrap" hidden>
+                <span class="region-chip" id="region-chip-label"></span>
+                <button type="button" id="region-chip-clear" title="Clear region and return to world view">×</button>
+              </div>
             </div>
             <div id="video-tools" class="video-inline" style="display:none;">
               <label>Time series video</label>
@@ -843,11 +906,17 @@
       <div class="map-container">
         <div class="map-grid">
           <div class="map-panel" id="map-panel-a">
-            <div class="map-panel-header" id="map-panel-a-label">Before (Year A)</div>
+            <div class="map-panel-header map-panel-header-row">
+              <span class="map-panel-title" id="map-panel-a-label">Map</span>
+              <button type="button" class="map-download-btn" id="btn-download-map-a">Download</button>
+            </div>
             <div class="map-inner"><div id="mapA"></div></div>
           </div>
           <div class="map-panel" id="map-panel-b">
-            <div class="map-panel-header" id="map-panel-b-label">After (Year B)</div>
+            <div class="map-panel-header map-panel-header-row">
+              <span class="map-panel-title" id="map-panel-b-label">Map B</span>
+              <button type="button" class="map-download-btn" id="btn-download-map-b">Download</button>
+            </div>
             <div class="map-inner"><div id="mapB"></div></div>
           </div>
         </div>
@@ -858,15 +927,15 @@
       <section class="report-analysis">
         <div>
           <div class="report-label">Current layer</div>
-          <div class="report-value" id="report-layer">Change Detection</div>
+          <div class="report-value" id="report-layer">Home</div>
         </div>
         <div>
           <div class="report-label">Selected region</div>
-          <div class="report-value link" id="report-region">Abu Dhabi (example)</div>
+          <div class="report-value link" id="report-region">World</div>
         </div>
         <div>
-          <div class="report-label">Years</div>
-          <div class="report-value" id="report-years">2020 → 2022</div>
+          <div class="report-label">Dates</div>
+          <div class="report-value" id="report-dates">—</div>
         </div>
         <div>
           <div class="report-label">Summary</div>
@@ -883,9 +952,11 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
 
   <script>
     const API_BASE = "";
+    let lastMapData = null;
 
     const DW_CLASSES = [
       { label: "Water", color: "#419bdf" },
@@ -914,21 +985,34 @@
     }
     buildLegend();
 
-    const yearsFromDom = Array.from(document.querySelectorAll("#yearA option"))
-      .map(o => parseInt(o.value, 10))
-      .filter(n => !Number.isNaN(n));
+    function initDateInputs() {
+      const da = document.getElementById("dateA");
+      const db = document.getElementById("dateB");
+      const today = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const toIso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const mx = toIso(today);
+      da.setAttribute("max", mx);
+      db.setAttribute("max", mx);
+      const a = new Date(today);
+      a.setDate(a.getDate() - 14);
+      if (!da.value) da.value = toIso(a);
+      if (!db.value) db.value = toIso(today);
+    }
 
     const defaultCenter = [26.3, 55.28];
     const SAT_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
     const satelliteA = L.tileLayer(SAT_URL, {
       attribution: "Esri & others",
-      maxZoom: 19
+      maxZoom: 19,
+      crossOrigin: true,
     });
 
     const satelliteB = L.tileLayer(SAT_URL, {
       attribution: "Esri & others",
-      maxZoom: 19
+      maxZoom: 19,
+      crossOrigin: true,
     });
 
     const mapA = L.map("mapA", {
@@ -1002,29 +1086,16 @@
 
     function currentMode() {
       const r = document.querySelector('input[name="mode"]:checked');
-      return r ? r.value : "global_latest";
+      return r ? r.value : "home";
     }
 
-    function updateYearUIForMode() {
+    function updateDateUIForMode() {
       const mode = currentMode();
-      const aBox = document.getElementById("yearA-container");
-      const bBox = document.getElementById("yearB-container");
-      const yearRow = document.getElementById("year-controls-row");
-
-      if (mode === "global_latest") {
-        yearRow.style.display = "none";
-        return;
-      }
-      yearRow.style.display = "";
-
-      if (mode === "single_year") {
+      const bBox = document.getElementById("dateB-container");
+      if (mode === "home") {
         bBox.style.display = "none";
-        aBox.style.flex = "1 1 100%";
-        const yearAVal = document.getElementById("yearA").value;
-        document.getElementById("yearB").value = yearAVal;
       } else {
         bBox.style.display = "block";
-        aBox.style.flex = "1";
       }
     }
 
@@ -1034,9 +1105,8 @@
     }
 
     function modeToLabel(v) {
-      if (v === "global_latest") return "Global (latest Dynamic World)";
+      if (v === "home") return "Home";
       if (v === "change_detection") return "Change Detection";
-      if (v === "single_year") return "Single Year Map";
       if (v === "timeseries") return "Time Series";
       if (v === "prediction") return "Prediction";
       return v;
@@ -1045,8 +1115,8 @@
     function getUIState() {
       return {
         mode: currentMode(),
-        year_a: parseInt(document.getElementById("yearA").value, 10),
-        year_b: parseInt(document.getElementById("yearB").value, 10),
+        date_a: document.getElementById("dateA").value,
+        date_b: document.getElementById("dateB").value,
         city: document.getElementById("city").value || ""
       };
     }
@@ -1055,42 +1125,19 @@
       const t = text.toLowerCase().trim();
       if (!t) return;
 
-      const yearSelectA = document.getElementById("yearA");
-      const yearSelectB = document.getElementById("yearB");
+      const dateA = document.getElementById("dateA");
+      const dateB = document.getElementById("dateB");
       const cityInput = document.getElementById("city");
 
-      const ALL_YEARS = yearsFromDom.length ? yearsFromDom : [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
-      const lastIndex = ALL_YEARS.length - 1;
-      const defaultYearA = ALL_YEARS[Math.max(0, lastIndex - 1)];
-      const defaultYearB = ALL_YEARS[lastIndex];
-
       if (t.includes("reset") && (t.includes("map") || t.includes("settings") || t.includes("all"))) {
-        document.querySelector('input[name="mode"][value="global_latest"]').checked = true;
-        yearSelectA.value = String(defaultYearA);
-        yearSelectB.value = String(defaultYearB);
+        document.querySelector('input[name="mode"][value="home"]').checked = true;
+        cityInput.value = "";
       }
 
-      if ((t.includes("swap") || t.includes("switch") || t.includes("reverse") || t.includes("flip")) && t.includes("year")) {
-        const oldA = yearSelectA.value;
-        const oldB = yearSelectB.value;
-        yearSelectA.value = oldB;
-        yearSelectB.value = oldA;
-      }
-
-      if (t.includes("next year")) {
-        const curB = parseInt(yearSelectB.value, 10);
-        const idx = ALL_YEARS.indexOf(curB);
-        if (idx >= 0 && idx < ALL_YEARS.length - 1) {
-          yearSelectB.value = String(ALL_YEARS[idx + 1]);
-        }
-      }
-
-      if (t.includes("previous year") || t.includes("last year")) {
-        const curA = parseInt(yearSelectA.value, 10);
-        const idx = ALL_YEARS.indexOf(curA);
-        if (idx > 0) {
-          yearSelectA.value = String(ALL_YEARS[idx - 1]);
-        }
+      if ((t.includes("swap") || t.includes("switch") || t.includes("reverse") || t.includes("flip")) && (t.includes("date") || t.includes("year"))) {
+        const oldA = dateA.value;
+        dateA.value = dateB.value;
+        dateB.value = oldA;
       }
 
       if (t.includes("change detection") || t.includes("change analysis") || t.includes("difference")) {
@@ -1099,29 +1146,41 @@
         document.querySelector('input[name="mode"][value="timeseries"]').checked = true;
       } else if (t.includes("prediction") || t.includes("forecast") || t.includes("future land")) {
         document.querySelector('input[name="mode"][value="prediction"]').checked = true;
-      } else if (t.includes("global") || t.includes("world map") || t.includes("whole world")) {
-        document.querySelector('input[name="mode"][value="global_latest"]').checked = true;
-      } else if (t.includes("single year") || t.includes("only")) {
-        document.querySelector('input[name="mode"][value="single_year"]').checked = true;
+      } else if (t.includes("home") || t.includes("world view") || t.includes("whole world")) {
+        document.querySelector('input[name="mode"][value="home"]').checked = true;
+        if (t.includes("whole world") || t.includes("world view")) {
+          cityInput.value = "";
+        }
       }
 
-      const found = Array.from(t.matchAll(/\b(19[0-9]{2}|20[0-9]{2})\b/g))
+      const isoFound = Array.from(t.matchAll(/\b(20[0-9]{2}|201[89])-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])\b/g)).map(m => m[0]);
+      if (isoFound.length === 1) {
+        dateA.value = isoFound[0];
+        dateB.value = isoFound[0];
+      } else if (isoFound.length >= 2) {
+        dateA.value = isoFound[0];
+        dateB.value = isoFound[isoFound.length - 1];
+      }
+
+      const ALL_YEARS = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+      const foundYears = Array.from(t.matchAll(/\b(19[0-9]{2}|20[0-9]{2})\b/g))
         .map(m => parseInt(m[1], 10))
         .filter(y => ALL_YEARS.includes(y));
-      const uniqueYears = Array.from(new Set(found)).sort();
+      const uniqueYears = Array.from(new Set(foundYears)).sort();
 
-      if (uniqueYears.length === 1) {
-        yearSelectA.value = String(uniqueYears[0]);
-        yearSelectB.value = String(uniqueYears[0]);
+      if (uniqueYears.length === 1 && isoFound.length === 0) {
+        const y = uniqueYears[0];
+        dateA.value = `${y}-06-15`;
+        dateB.value = `${y}-06-15`;
         const cm = currentMode();
         if (cm !== "timeseries" && cm !== "prediction") {
-          document.querySelector('input[name="mode"][value="single_year"]').checked = true;
+          document.querySelector('input[name="mode"][value="home"]').checked = true;
         }
-      } else if (uniqueYears.length >= 2) {
-        yearSelectA.value = String(uniqueYears[0]);
-        yearSelectB.value = String(uniqueYears[uniqueYears.length - 1]);
+      } else if (uniqueYears.length >= 2 && isoFound.length === 0) {
+        dateA.value = `${uniqueYears[0]}-01-01`;
+        dateB.value = `${uniqueYears[uniqueYears.length - 1]}-12-31`;
         const cm = currentMode();
-        if (cm === "single_year" || cm === "global_latest") {
+        if (cm === "home") {
           document.querySelector('input[name="mode"][value="change_detection"]').checked = true;
         }
       }
@@ -1132,7 +1191,7 @@
         return;
       }
 
-      const controlWords = ["year", "map", "mode", "reset", "swap", "change detection", "time series", "single year", "prediction", "global", "forecast"];
+      const controlWords = ["year", "date", "map", "mode", "reset", "swap", "change detection", "time series", "prediction", "home", "forecast"];
       const hasControlWord = controlWords.some(w => t.includes(w));
       const hasDigits = /\d/.test(t);
       const wordCount = t.split(/\s+/).filter(Boolean).length;
@@ -1175,59 +1234,69 @@
 
         const tiles = data.tiles || {};
         const mode = state.mode;
+        lastMapData = data;
 
         const panelA = document.getElementById("map-panel-a");
         const panelB = document.getElementById("map-panel-b");
         const labelA = document.getElementById("map-panel-a-label");
         const labelB = document.getElementById("map-panel-b-label");
 
+        const chipWrap = document.getElementById("region-chip-wrap");
+        const cityVal = (state.city || "").trim();
+        if (cityVal) {
+          chipWrap.hidden = false;
+          document.getElementById("region-chip-label").textContent = cityVal;
+        } else {
+          chipWrap.hidden = true;
+        }
+
         if (mode === "change_detection") {
           panelA.style.display = "flex";
           panelB.style.display = "flex";
-          labelA.textContent = `Before (${data.year_a})`;
-          labelB.textContent = `After (${data.year_b})`;
+          labelA.textContent = `Before (${data.date_a_display})`;
+          labelB.textContent = `After (${data.date_b_display})`;
 
           if (tiles.a) {
-            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.9 }).addTo(mapA);
+            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.9, crossOrigin: true }).addTo(mapA);
           }
           if (tiles.b) {
-            dwLayerB = L.tileLayer(tiles.b, { opacity: 0.9 }).addTo(mapB);
+            dwLayerB = L.tileLayer(tiles.b, { opacity: 0.9, crossOrigin: true }).addTo(mapB);
           }
           if (tiles.change) {
-            dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.5 }).addTo(mapA);
-            dwLayerChangeB = L.tileLayer(tiles.change, { opacity: 0.5 }).addTo(mapB);
+            dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.5, crossOrigin: true }).addTo(mapA);
+            dwLayerChangeB = L.tileLayer(tiles.change, { opacity: 0.5, crossOrigin: true }).addTo(mapB);
           }
-        } else if (mode === "global_latest") {
+        } else if (mode === "home") {
           panelA.style.display = "flex";
           panelB.style.display = "none";
-          labelA.textContent = "Global · Dynamic World (recent)";
+          labelA.textContent =
+            data.city === "World"
+              ? `World · ${data.date_a_display}`
+              : `${data.city} · ${data.date_a_display}`;
           if (tiles.a) {
-            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.92, maxNativeZoom: 14, maxZoom: 19 }).addTo(mapA);
+            dwLayerA = L.tileLayer(tiles.a, {
+              opacity: 0.92,
+              maxNativeZoom: data.city === "World" ? 14 : 19,
+              maxZoom: 19,
+              crossOrigin: true,
+            }).addTo(mapA);
           }
         } else if (mode === "prediction" || mode === "timeseries") {
           panelA.style.display = "flex";
           panelB.style.display = "none";
           labelA.textContent =
             mode === "prediction"
-              ? `Prediction · ${data.year_a} vs ${data.year_b}`
-              : `Time series (${data.year_a} → ${data.year_b})`;
+              ? `Prediction · ${data.date_a_display} vs ${data.date_b_display}`
+              : `Time series · ${data.date_a_display} → ${data.date_b_display}`;
 
           if (tiles.a) {
-            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.8 }).addTo(mapA);
+            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
           }
           if (tiles.b) {
-            dwLayerB = L.tileLayer(tiles.b, { opacity: 0.8 }).addTo(mapA);
+            dwLayerB = L.tileLayer(tiles.b, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
           }
           if (tiles.change) {
-            dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.7 }).addTo(mapA);
-          }
-        } else if (mode === "single_year") {
-          panelA.style.display = "flex";
-          panelB.style.display = "none";
-          labelA.textContent = `Single year (${data.year_a})`;
-
-          if (tiles.a) {
-            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.9 }).addTo(mapA);
+            dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.7, crossOrigin: true }).addTo(mapA);
           }
         }
 
@@ -1257,8 +1326,12 @@
 
         document.getElementById("report-layer").textContent = modeToLabel(data.mode);
         document.getElementById("report-region").textContent = data.city;
-        document.getElementById("report-years").textContent =
-          data.global_latest_label || (data.year_a + " → " + data.year_b);
+        const rd = document.getElementById("report-dates");
+        if (mode === "home" || data.date_a === data.date_b) {
+          rd.textContent = data.date_a_display;
+        } else {
+          rd.textContent = data.date_a_display + " → " + data.date_b_display;
+        }
 
         setTimeout(() => {
           mapA.invalidateSize();
@@ -1283,8 +1356,8 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            year_a: state.year_a,
-            year_b: state.year_b,
+            year_a: parseInt(String(state.date_a).slice(0, 4), 10) || 2020,
+            year_b: parseInt(String(state.date_b).slice(0, 4), 10) || 2024,
             city: state.city,
             fps: 2,
             size: 768,
@@ -1303,7 +1376,7 @@
         const url = URL.createObjectURL(blob);
 
         link.href = url;
-        link.download = `timeseries_${(state.city || "region").replace(/\s+/g, "_")}_${state.year_a}_${state.year_b}.mp4`;
+        link.download = `timeseries_${(state.city || "region").replace(/\s+/g, "_")}_${String(state.date_a).slice(0, 4)}_${String(state.date_b).slice(0, 4)}.mp4`;
         link.style.display = "inline-block";
         link.textContent = "Download video";
 
@@ -1314,12 +1387,12 @@
       }
     }
 
-    document.getElementById("yearA").addEventListener("change", loadMapFromBackend);
-    document.getElementById("yearB").addEventListener("change", loadMapFromBackend);
+    document.getElementById("dateA").addEventListener("change", loadMapFromBackend);
+    document.getElementById("dateB").addEventListener("change", loadMapFromBackend);
     document.getElementById("city").addEventListener("blur", loadMapFromBackend);
     document.querySelectorAll('input[name="mode"]').forEach(r =>
       r.addEventListener("change", () => {
-        updateYearUIForMode();
+        updateDateUIForMode();
         updateVideoToolsVisibility();
         loadMapFromBackend();
       })
@@ -1327,7 +1400,75 @@
 
     document.getElementById("generate-video-btn").addEventListener("click", generateTimeSeriesVideo);
 
-    updateYearUIForMode();
+    document.getElementById("region-chip-clear").addEventListener("click", () => {
+      document.getElementById("city").value = "";
+      document.getElementById("region-chip-wrap").hidden = true;
+      loadMapFromBackend();
+    });
+
+    async function downloadMapSnapshot(map, panelTitle) {
+      if (typeof html2canvas === "undefined") {
+        alert("Download library did not load. Check your network.");
+        return;
+      }
+      const el = map.getContainer();
+      const dm =
+        lastMapData && (currentMode() === "home" || lastMapData.date_a === lastMapData.date_b)
+          ? lastMapData.date_a_display
+          : lastMapData
+            ? lastMapData.date_a_display + " → " + lastMapData.date_b_display
+            : "";
+      const lines = [
+        panelTitle || "EarthMonitor",
+        lastMapData ? "Region: " + lastMapData.city : "",
+        dm ? "Dates: " + dm : "",
+      ].filter(Boolean);
+      try {
+        const canvas = await html2canvas(el, {
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          scale: Math.min(2, (window.devicePixelRatio || 1) * 1.25),
+        });
+        const capH = Math.max(52, 16 + lines.length * 20);
+        const out = document.createElement("canvas");
+        out.width = canvas.width;
+        out.height = canvas.height + capH;
+        const octx = out.getContext("2d");
+        octx.fillStyle = "#0f172a";
+        octx.fillRect(0, 0, out.width, out.height);
+        octx.drawImage(canvas, 0, 0);
+        octx.fillStyle = "#e2e8f0";
+        octx.font = "600 14px system-ui,Segoe UI,sans-serif";
+        let y = canvas.height + 16;
+        lines.forEach((line) => {
+          octx.fillText(String(line).substring(0, 100), 12, y);
+          y += 20;
+        });
+        out.toBlob((blob) => {
+          if (!blob) return;
+          const a = document.createElement("a");
+          const safe = (panelTitle || "map").replace(/[^\w\-]+/g, "_").slice(0, 48);
+          a.href = URL.createObjectURL(blob);
+          a.download = "earthmonitor_" + safe + ".png";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+      } catch (err) {
+        console.error(err);
+        alert("Could not capture this map. Some layers block export—try hiding satellite or earthquake overlay.");
+      }
+    }
+
+    document.getElementById("btn-download-map-a").addEventListener("click", () => {
+      downloadMapSnapshot(mapA, document.getElementById("map-panel-a-label").textContent);
+    });
+    document.getElementById("btn-download-map-b").addEventListener("click", () => {
+      downloadMapSnapshot(mapB, document.getElementById("map-panel-b-label").textContent);
+    });
+
+    initDateInputs();
+    updateDateUIForMode();
     updateVideoToolsVisibility();
     loadMapFromBackend();
 
@@ -1370,7 +1511,7 @@
       appendMessage("user", text);
 
       applyChatTextToControls(text);
-      updateYearUIForMode();
+      updateDateUIForMode();
       updateVideoToolsVisibility();
       await loadMapFromBackend();
 
@@ -1383,8 +1524,8 @@
           body: JSON.stringify({
             message: text,
             mode: state.mode,
-            year_a: state.year_a,
-            year_b: state.year_b,
+            date_a: state.date_a,
+            date_b: state.date_b,
             city: state.city,
           }),
         });
