@@ -647,23 +647,6 @@
       height: 100%;
     }
 
-    .map-overlay-badge {
-      position: absolute;
-      bottom: max(12px, env(safe-area-inset-bottom, 12px));
-      left: 12px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.92);
-      border: 1px solid rgba(148, 163, 184, 0.5);
-      font-size: 10px;
-      color: #e2e8f0;
-      backdrop-filter: blur(8px);
-      z-index: 1000;
-      pointer-events: none;
-      max-width: min(92vw, 320px);
-      line-height: 1.35;
-    }
-
     .map-legend {
       position: absolute;
       bottom: max(12px, env(safe-area-inset-bottom, 12px));
@@ -786,11 +769,6 @@
     }
 
     @media (max-width: 699px) {
-      .map-overlay-badge {
-        top: 10px;
-        bottom: auto;
-        left: 10px;
-      }
       .map-legend {
         top: 10px;
         bottom: auto;
@@ -920,7 +898,6 @@
             <div class="map-inner"><div id="mapB"></div></div>
           </div>
         </div>
-        <div class="map-overlay-badge" id="live-activity-badge">Live · loading global activity…</div>
         <div class="map-legend" id="map-legend"></div>
       </div>
 
@@ -1026,56 +1003,6 @@
       zoom: 3,
       layers: [satelliteB]
     });
-
-    const earthquakeGroupA = L.layerGroup().addTo(mapA);
-    const earthquakeGroupB = L.layerGroup().addTo(mapB);
-
-    const USGS_QUAKES_URL =
-      "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_hour.geojson";
-    const EARTHQUAKE_REFRESH_MS = 3 * 60 * 1000;
-
-    async function refreshEarthquakeLayers() {
-      const badge = document.getElementById("live-activity-badge");
-      try {
-        const res = await fetch(USGS_QUAKES_URL);
-        if (!res.ok) throw new Error("USGS HTTP " + res.status);
-        const data = await res.json();
-        earthquakeGroupA.clearLayers();
-        earthquakeGroupB.clearLayers();
-
-        const gjOpts = {
-          pointToLayer(feature, latlng) {
-            const mag = feature.properties.mag || 0;
-            const r = Math.max(3, Math.min(22, mag * 2.5));
-            return L.circleMarker(latlng, {
-              radius: r,
-              color: "#f97316",
-              weight: 1,
-              fillColor: "#fdba74",
-              fillOpacity: 0.55,
-            });
-          },
-          onEachFeature(feature, layer) {
-            const p = feature.properties || {};
-            const t = p.time ? new Date(p.time).toLocaleString() : "";
-            layer.bindPopup(
-              `<strong>M${p.mag ?? "?"}</strong><br>${p.place || "Unknown"}<br><small>${t}</small>`
-            );
-          },
-        };
-
-        L.geoJSON(data, gjOpts).eachLayer((ly) => earthquakeGroupA.addLayer(ly));
-        L.geoJSON(data, gjOpts).eachLayer((ly) => earthquakeGroupB.addLayer(ly));
-
-        const n = data.features ? data.features.length : 0;
-        const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        badge.textContent =
-          "Live · USGS M4.5+ past hour: " + n + " events · updated " + now;
-      } catch (err) {
-        console.warn("Earthquake feed:", err);
-        badge.textContent = "Live · global activity feed unavailable (offline or blocked)";
-      }
-    }
 
     let dwLayerA = null;
     let dwLayerB = null;
@@ -1306,7 +1233,6 @@
         if (dwLayerA) overlaysA["Dynamic World"] = dwLayerA;
         if (dwLayerB && mapA.hasLayer(dwLayerB)) overlaysA["Dynamic World (B)"] = dwLayerB;
         if (dwLayerChangeA) overlaysA["Change Detection"] = dwLayerChangeA;
-        overlaysA["Recent quakes (USGS)"] = earthquakeGroupA;
         layerControlA = L.control.layers(baseA, overlaysA, { position: "topleft" }).addTo(mapA);
 
         if (mode === "change_detection") {
@@ -1315,7 +1241,6 @@
           const overlaysB = {};
           if (dwLayerB) overlaysB["Dynamic World"] = dwLayerB;
           if (dwLayerChangeB) overlaysB["Change Detection"] = dwLayerChangeB;
-          overlaysB["Recent quakes (USGS)"] = earthquakeGroupB;
           layerControlB = L.control.layers(baseB, overlaysB, { position: "topleft" }).addTo(mapB);
         } else {
           if (layerControlB) {
@@ -1456,7 +1381,7 @@
         });
       } catch (err) {
         console.error(err);
-        alert("Could not capture this map. Some layers block export—try hiding satellite or earthquake overlay.");
+        alert("Could not capture this map. Some layers block export—try hiding the satellite base layer.");
       }
     }
 
@@ -1471,9 +1396,6 @@
     updateDateUIForMode();
     updateVideoToolsVisibility();
     loadMapFromBackend();
-
-    refreshEarthquakeLayers();
-    setInterval(refreshEarthquakeLayers, EARTHQUAKE_REFRESH_MS);
 
     window.addEventListener("resize", () => {
       setTimeout(() => {
