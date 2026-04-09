@@ -547,6 +547,23 @@
       min-height: 140px;
     }
 
+    .map-grid.single-map-mode .map-grid-row {
+      display: block;
+    }
+
+    .map-grid.single-map-mode #map-panel-a {
+      width: 100%;
+      height: 100%;
+    }
+
+    .map-grid.single-map-mode #map-panel-b {
+      display: none !important;
+    }
+
+    .map-grid.single-map-mode #map-panel-c {
+      display: none !important;
+    }
+
     @media (max-width: 700px) {
       .map-grid-row {
         flex-direction: column;
@@ -1230,7 +1247,9 @@
         }
 
         if (mode === "change_detection") {
+          mapGridRoot.classList.remove("single-map-mode");
           mapGridRoot.classList.add("has-change-row");
+          panelB.hidden = false;
           panelC.hidden = false;
           panelA.style.display = "flex";
           panelB.style.display = "flex";
@@ -1250,7 +1269,9 @@
             dwLayerChangeC = L.tileLayer(tiles.change, { opacity: 0.82, crossOrigin: true }).addTo(mapC);
           }
         } else if (mode === "home") {
+          mapGridRoot.classList.add("single-map-mode");
           mapGridRoot.classList.remove("has-change-row");
+          panelB.hidden = true;
           panelC.hidden = true;
           panelA.style.display = "flex";
           panelB.style.display = "none";
@@ -1267,7 +1288,9 @@
             }).addTo(mapA);
           }
         } else if (mode === "prediction" || mode === "timeseries") {
+          mapGridRoot.classList.add("single-map-mode");
           mapGridRoot.classList.remove("has-change-row");
+          panelB.hidden = true;
           panelC.hidden = true;
           panelA.style.display = "flex";
           panelB.style.display = "none";
