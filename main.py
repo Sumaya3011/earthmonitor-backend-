@@ -27,7 +27,7 @@ from config import (
     LOCATION_NAME,
     CLASS_PALETTE,
 )
-from gee_utils import get_dw_tile_urls
+from gee_utils import get_dw_tile_urls, get_latest_global_dw_tile_url, get_prediction_tile_urls
 from chat_utils import ask_chatbot
 
 # ---------------------------------------------------------------------
@@ -247,20 +247,35 @@ def map_config(req: MapRequest):
     city_name, lat, lon = resolve_city(req.city)
     location_point = ee.Geometry.Point([lon, lat])
 
-    if mode == "single_year":
+    latest_period: Optional[str] = None
+    zoom: Optional[int] = None
+    center_lat = lat
+    center_lon = lon
+
+    if mode == "global_home":
+        tiles, latest_period = get_latest_global_dw_tile_url()
+        center_lat = 15.0
+        center_lon = 10.0
+        zoom = 2
+    elif mode == "single_year":
         tiles = get_dw_tile_urls(location_point, year_a, year_a)
+    elif mode == "prediction":
+        tiles = get_prediction_tile_urls(location_point, year_a, year_b)
     else:
         tiles = get_dw_tile_urls(location_point, year_a, year_b)
 
-    return {
+    payload = {
         "city": city_name,
-        "center_lat": lat,
-        "center_lon": lon,
+        "center_lat": center_lat,
+        "center_lon": center_lon,
         "year_a": year_a,
         "year_b": year_b,
         "mode": mode,
         "tiles": tiles,
+        "latest_period": latest_period,
+        "zoom": zoom,
     }
+    return payload
 
 
 # ---------------------------------------------------------------------
@@ -275,7 +290,8 @@ def chat(req: ChatRequest):
         "content": (
             "You are a helpful assistant that explains Dynamic World land cover "
             "maps and changes over time in SIMPLE language. "
-            "The app has three analysis modes: change_detection, single_year, timeseries. "
+            "The app has modes: global_home (world latest Dynamic World), change_detection, "
+            "single_year, timeseries, prediction (heuristic recent vs baseline). "
             f"Current mode: {req.mode}, years: {req.year_a}–{req.year_b}. "
             f"Current region: {city_name} at ({lat:.3f}, {lon:.3f}). "
             "Return your answer STRICTLY as JSON with two keys: "

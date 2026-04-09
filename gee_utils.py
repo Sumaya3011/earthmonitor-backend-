@@ -7,6 +7,8 @@ This file:
 - Returns XYZ tile URLs that we can show in a Folium map.
 """
 
+from datetime import date, timedelta
+
 import ee
 
 from config import CLASS_PALETTE
@@ -92,4 +94,70 @@ def get_dw_tile_urls(point_geom: ee.Geometry, year_a: int, year_b: int) -> dict:
         "a": url_a,
         "b": url_b,
         "change": url_change,
+        "prediction": None,
+    }
+
+
+def get_latest_global_dw_tile_url() -> tuple[dict, str]:
+    """
+    Worldwide Dynamic World mosaic for the most recent ~2 months of data
+    (no regional filter). Returns tile dict and a human-readable period string.
+    """
+    end = date.today()
+    start = end - timedelta(days=62)
+    start_s = start.isoformat()
+    end_s = end.isoformat()
+    period = f"{start_s} → {end_s}"
+
+    ic = (
+        ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1")
+        .filterDate(start_s, end_s)
+        .select("label")
+    )
+    img = ic.mode()
+    vis = {
+        "min": 0,
+        "max": 8,
+        "palette": CLASS_PALETTE,
+    }
+    url = _image_to_tile_url(img, vis)
+    tiles = {"a": url, "b": None, "change": None, "prediction": None}
+    return tiles, period
+
+
+def _recent_dw_mode(point_geom: ee.Geometry, months: int = 6) -> ee.Image:
+    end = date.today()
+    start = end - timedelta(days=30 * months)
+    return (
+        ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1")
+        .filterDate(start.isoformat(), end.isoformat())
+        .filterBounds(point_geom)
+        .select("label")
+        .mode()
+    )
+
+
+def get_prediction_tile_urls(point_geom: ee.Geometry, year_a: int, year_b: int) -> dict:
+    """
+    Simple heuristic "prediction" view: baseline annual map for year_a vs
+    dominant class in recent months; third layer highlights where they differ.
+    year_b is reserved for UI / future weighting (annual composite for year_b
+    could be added later).
+    """
+    _ = year_b
+    img_a, vis = build_dynamic_world_image(point_geom, year_a)
+    img_recent = _recent_dw_mode(point_geom, 6)
+
+    url_a = _image_to_tile_url(img_a, vis)
+    url_b = _image_to_tile_url(img_recent, vis)
+
+    delta = img_a.neq(img_recent)
+    pred_vis = {"min": 0, "max": 1, "palette": ["0f172a", "e879f9"]}
+    url_pred = _image_to_tile_url(delta, pred_vis)
+
+    return {
+        "a": url_a,
+        "b": url_b,
+        "change": None,
+        "prediction": url_pred,
     }

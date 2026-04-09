@@ -519,18 +519,56 @@
       }
     }
 
-    .map-grid {
+    .map-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      flex: 1;
+    }
+
+    .map-stack.has-bottom-row .map-grid-top {
+      flex: 1 1 52%;
+      min-height: 0;
+    }
+
+    .map-grid-top {
       display: flex;
       flex-direction: row;
       gap: 8px;
       width: 100%;
-      height: 100%;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .map-grid-top.map-grid-single .map-panel-a-full {
+      flex: 1 1 100%;
+      max-width: 100%;
     }
 
     @media (max-width: 700px) {
-      .map-grid {
+      .map-grid-top {
         flex-direction: column;
       }
+    }
+
+    .map-row-bottom {
+      display: none;
+      flex: 1 1 40%;
+      min-height: 130px;
+      max-height: min(42vh, 360px);
+      flex-direction: column;
+    }
+
+    .map-row-bottom.is-visible {
+      display: flex;
+    }
+
+    .map-panel-bottom {
+      flex: 1;
+      min-height: 0;
     }
 
     .map-panel {
@@ -561,7 +599,8 @@
     }
 
     #mapA,
-    #mapB {
+    #mapB,
+    #mapC {
       width: 100%;
       height: 100%;
     }
@@ -760,7 +799,11 @@
           <div class="monitor-toolbar">
             <div class="mode-segments" role="radiogroup" aria-label="Analysis mode">
             <label class="monitor-radio">
-              <input type="radio" name="mode" value="change_detection" checked />
+              <input type="radio" name="mode" value="global_home" checked />
+              <span>World (latest)</span>
+            </label>
+            <label class="monitor-radio">
+              <input type="radio" name="mode" value="change_detection" />
               <span>Change</span>
             </label>
             <label class="monitor-radio">
@@ -771,9 +814,13 @@
               <input type="radio" name="mode" value="timeseries" />
               <span>Time series</span>
             </label>
+            <label class="monitor-radio">
+              <input type="radio" name="mode" value="prediction" />
+              <span>Prediction</span>
+            </label>
             </div>
             <div class="toolbar-fields">
-            <div class="toolbar-field">
+            <div class="toolbar-field" id="year-controls-wrap">
               <label>Years</label>
               <div class="year-row">
                 <div id="yearA-container" style="flex:1;">
@@ -833,14 +880,22 @@
 
     <main class="map-stage">
       <div class="map-container">
-        <div class="map-grid">
-          <div class="map-panel" id="map-panel-a">
-            <div class="map-panel-header" id="map-panel-a-label">Before (Year A)</div>
-            <div class="map-inner"><div id="mapA"></div></div>
+        <div class="map-stack" id="map-stack">
+          <div class="map-grid map-grid-top" id="map-grid-top">
+            <div class="map-panel map-panel-a-full" id="map-panel-a">
+              <div class="map-panel-header" id="map-panel-a-label">Map A</div>
+              <div class="map-inner"><div id="mapA"></div></div>
+            </div>
+            <div class="map-panel" id="map-panel-b">
+              <div class="map-panel-header" id="map-panel-b-label">Map B</div>
+              <div class="map-inner"><div id="mapB"></div></div>
+            </div>
           </div>
-          <div class="map-panel" id="map-panel-b">
-            <div class="map-panel-header" id="map-panel-b-label">After (Year B)</div>
-            <div class="map-inner"><div id="mapB"></div></div>
+          <div class="map-row-bottom" id="map-row-bottom" aria-hidden="true">
+            <div class="map-panel map-panel-bottom" id="map-panel-c">
+              <div class="map-panel-header" id="map-panel-c-label">Layer</div>
+              <div class="map-inner"><div id="mapC"></div></div>
+            </div>
           </div>
         </div>
         <div class="map-overlay-badge" id="live-activity-badge">Live · loading global activity…</div>
@@ -850,7 +905,7 @@
       <section class="report-analysis">
         <div>
           <div class="report-label">Current layer</div>
-          <div class="report-value" id="report-layer">Change Detection</div>
+          <div class="report-value" id="report-layer">World (latest Dynamic World)</div>
         </div>
         <div>
           <div class="report-label">Selected region</div>
@@ -935,8 +990,21 @@
       layers: [satelliteB]
     });
 
+    const satelliteC = L.tileLayer(SAT_URL, {
+      attribution: "Esri & others",
+      maxZoom: 19
+    });
+
+    const mapC = L.map("mapC", {
+      center: defaultCenter,
+      zoom: 3,
+      layers: [satelliteC],
+      zoomControl: true
+    });
+
     const earthquakeGroupA = L.layerGroup().addTo(mapA);
     const earthquakeGroupB = L.layerGroup().addTo(mapB);
+    const earthquakeGroupC = L.layerGroup().addTo(mapC);
 
     const USGS_QUAKES_URL =
       "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_hour.geojson";
@@ -974,6 +1042,7 @@
 
         L.geoJSON(data, gjOpts).eachLayer((ly) => earthquakeGroupA.addLayer(ly));
         L.geoJSON(data, gjOpts).eachLayer((ly) => earthquakeGroupB.addLayer(ly));
+        L.geoJSON(data, gjOpts).eachLayer((ly) => earthquakeGroupC.addLayer(ly));
 
         const n = data.features ? data.features.length : 0;
         const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -989,18 +1058,27 @@
     let dwLayerB = null;
     let dwLayerChangeA = null;
     let dwLayerChangeB = null;
+    let dwLayerC = null;
     let layerControlA = null;
     let layerControlB = null;
+    let layerControlC = null;
 
     function currentMode() {
       const r = document.querySelector('input[name="mode"]:checked');
-      return r ? r.value : "change_detection";
+      return r ? r.value : "global_home";
     }
 
     function updateYearUIForMode() {
       const mode = currentMode();
       const aBox = document.getElementById("yearA-container");
       const bBox = document.getElementById("yearB-container");
+      const yearWrap = document.getElementById("year-controls-wrap");
+
+      if (mode === "global_home") {
+        yearWrap.style.display = "none";
+      } else {
+        yearWrap.style.display = "block";
+      }
 
       if (mode === "single_year") {
         bBox.style.display = "none";
@@ -1019,9 +1097,11 @@
     }
 
     function modeToLabel(v) {
+      if (v === "global_home") return "World (latest Dynamic World)";
       if (v === "change_detection") return "Change Detection";
       if (v === "single_year") return "Single Year Map";
       if (v === "timeseries") return "Time Series";
+      if (v === "prediction") return "Prediction";
       return v;
     }
 
@@ -1048,7 +1128,7 @@
       const defaultYearB = ALL_YEARS[lastIndex];
 
       if (t.includes("reset") && (t.includes("map") || t.includes("settings") || t.includes("all"))) {
-        document.querySelector('input[name="mode"][value="change_detection"]').checked = true;
+        document.querySelector('input[name="mode"][value="global_home"]').checked = true;
         yearSelectA.value = String(defaultYearA);
         yearSelectB.value = String(defaultYearB);
       }
@@ -1076,7 +1156,11 @@
         }
       }
 
-      if (t.includes("change detection") || t.includes("change analysis") || t.includes("difference")) {
+      if (t.includes("world") && (t.includes("map") || t.includes("view") || t.includes("global") || t.includes("home"))) {
+        document.querySelector('input[name="mode"][value="global_home"]').checked = true;
+      } else if (t.includes("prediction") || t.includes("forecast") || t.includes("predict")) {
+        document.querySelector('input[name="mode"][value="prediction"]').checked = true;
+      } else if (t.includes("change detection") || t.includes("change analysis") || t.includes("difference")) {
         document.querySelector('input[name="mode"][value="change_detection"]').checked = true;
       } else if (t.includes("time series") || t.includes("timeseries") || t.includes("timeline")) {
         document.querySelector('input[name="mode"][value="timeseries"]').checked = true;
@@ -1109,7 +1193,7 @@
         return;
       }
 
-      const controlWords = ["year", "map", "mode", "reset", "swap", "change detection", "time series", "single year"];
+      const controlWords = ["year", "map", "mode", "reset", "swap", "change detection", "time series", "single year", "prediction", "world", "global", "home"];
       const hasControlWord = controlWords.some(w => t.includes(w));
       const hasDigits = /\d/.test(t);
       const wordCount = t.split(/\s+/).filter(Boolean).length;
@@ -1136,40 +1220,77 @@
 
         const data = await res.json();
 
+        const zoom = typeof data.zoom === "number" ? data.zoom : 11;
         const center = [data.center_lat, data.center_lon];
-        mapA.setView(center, 11);
-        mapB.setView(center, 11);
+
+        const mapStack = document.getElementById("map-stack");
+        const mapGridTop = document.getElementById("map-grid-top");
+        const rowBottom = document.getElementById("map-row-bottom");
+        const panelA = document.getElementById("map-panel-a");
+        const panelB = document.getElementById("map-panel-b");
+        const labelA = document.getElementById("map-panel-a-label");
+        const labelB = document.getElementById("map-panel-b-label");
+        const labelC = document.getElementById("map-panel-c-label");
 
         if (dwLayerA) { mapA.removeLayer(dwLayerA); dwLayerA = null; }
         if (dwLayerChangeA) { mapA.removeLayer(dwLayerChangeA); dwLayerChangeA = null; }
         if (dwLayerB) { mapB.removeLayer(dwLayerB); dwLayerB = null; }
         if (dwLayerChangeB) { mapB.removeLayer(dwLayerChangeB); dwLayerChangeB = null; }
+        if (dwLayerC) { mapC.removeLayer(dwLayerC); dwLayerC = null; }
+        if (layerControlC) { mapC.removeControl(layerControlC); layerControlC = null; }
 
         const tiles = data.tiles || {};
         const mode = state.mode;
 
-        const panelA = document.getElementById("map-panel-a");
-        const panelB = document.getElementById("map-panel-b");
-        const labelA = document.getElementById("map-panel-a-label");
-        const labelB = document.getElementById("map-panel-b-label");
+        rowBottom.classList.remove("is-visible");
+        rowBottom.setAttribute("aria-hidden", "true");
+        mapStack.classList.remove("has-bottom-row");
+        mapGridTop.classList.remove("map-grid-single");
 
-        if (mode === "change_detection") {
+        mapA.setView(center, zoom);
+        mapB.setView(center, zoom);
+        mapC.setView(center, zoom);
+
+        if (mode === "global_home") {
+          mapGridTop.classList.add("map-grid-single");
+          panelA.style.display = "flex";
+          panelB.style.display = "none";
+          labelA.textContent = "Latest Dynamic World (global mosaic)";
+          if (tiles.a) {
+            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.92 }).addTo(mapA);
+          }
+        } else if (mode === "change_detection") {
           panelA.style.display = "flex";
           panelB.style.display = "flex";
           labelA.textContent = `Before (${data.year_a})`;
           labelB.textContent = `After (${data.year_b})`;
+          labelC.textContent = "Change layer (year A vs B)";
+          rowBottom.classList.add("is-visible");
+          rowBottom.setAttribute("aria-hidden", "false");
+          mapStack.classList.add("has-bottom-row");
 
-          if (tiles.a) {
-            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.9 }).addTo(mapA);
-          }
-          if (tiles.b) {
-            dwLayerB = L.tileLayer(tiles.b, { opacity: 0.9 }).addTo(mapB);
-          }
+          if (tiles.a) dwLayerA = L.tileLayer(tiles.a, { opacity: 0.9 }).addTo(mapA);
+          if (tiles.b) dwLayerB = L.tileLayer(tiles.b, { opacity: 0.9 }).addTo(mapB);
           if (tiles.change) {
-            dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.5 }).addTo(mapA);
-            dwLayerChangeB = L.tileLayer(tiles.change, { opacity: 0.5 }).addTo(mapB);
+            dwLayerC = L.tileLayer(tiles.change, { opacity: 0.68 }).addTo(mapC);
+          }
+        } else if (mode === "prediction") {
+          panelA.style.display = "flex";
+          panelB.style.display = "flex";
+          labelA.textContent = `Baseline (${data.year_a})`;
+          labelB.textContent = "Recent (~6 months)";
+          labelC.textContent = "Prediction emphasis (vs baseline)";
+          rowBottom.classList.add("is-visible");
+          rowBottom.setAttribute("aria-hidden", "false");
+          mapStack.classList.add("has-bottom-row");
+
+          if (tiles.a) dwLayerA = L.tileLayer(tiles.a, { opacity: 0.9 }).addTo(mapA);
+          if (tiles.b) dwLayerB = L.tileLayer(tiles.b, { opacity: 0.9 }).addTo(mapB);
+          if (tiles.prediction) {
+            dwLayerC = L.tileLayer(tiles.prediction, { opacity: 0.72 }).addTo(mapC);
           }
         } else {
+          mapGridTop.classList.add("map-grid-single");
           panelA.style.display = "flex";
           panelB.style.display = "none";
           labelA.textContent =
@@ -1198,18 +1319,25 @@
         const baseA = { "Original Satellite": satelliteA };
         const overlaysA = {};
         if (dwLayerA) overlaysA["Dynamic World"] = dwLayerA;
-        if (dwLayerChangeA) overlaysA["Change Detection"] = dwLayerChangeA;
+        if (dwLayerChangeA) overlaysA["Change / compare"] = dwLayerChangeA;
         overlaysA["Recent quakes (USGS)"] = earthquakeGroupA;
         layerControlA = L.control.layers(baseA, overlaysA, { position: "topleft" }).addTo(mapA);
 
-        if (mode === "change_detection") {
+        if (mode === "change_detection" || mode === "prediction") {
           if (layerControlB) mapB.removeControl(layerControlB);
           const baseB = { "Original Satellite": satelliteB };
           const overlaysB = {};
           if (dwLayerB) overlaysB["Dynamic World"] = dwLayerB;
-          if (dwLayerChangeB) overlaysB["Change Detection"] = dwLayerChangeB;
           overlaysB["Recent quakes (USGS)"] = earthquakeGroupB;
           layerControlB = L.control.layers(baseB, overlaysB, { position: "topleft" }).addTo(mapB);
+
+          const baseC = { "Original Satellite": satelliteC };
+          const overlaysC = {};
+          if (dwLayerC) {
+            overlaysC[mode === "prediction" ? "Prediction highlight" : "Change highlight"] = dwLayerC;
+          }
+          overlaysC["Recent quakes (USGS)"] = earthquakeGroupC;
+          layerControlC = L.control.layers(baseC, overlaysC, { position: "topleft" }).addTo(mapC);
         } else {
           if (layerControlB) {
             mapB.removeControl(layerControlB);
@@ -1218,12 +1346,14 @@
         }
 
         document.getElementById("report-layer").textContent = modeToLabel(data.mode);
-        document.getElementById("report-region").textContent = data.city;
-        document.getElementById("report-years").textContent = data.year_a + " → " + data.year_b;
+        document.getElementById("report-region").textContent = mode === "global_home" ? "Global" : data.city;
+        document.getElementById("report-years").textContent =
+          data.latest_period || (data.year_a + " → " + data.year_b);
 
         setTimeout(() => {
           mapA.invalidateSize();
           mapB.invalidateSize();
+          mapC.invalidateSize();
         }, 200);
       } catch (err) {
         console.error("Error calling /map-config", err);
@@ -1299,6 +1429,7 @@
       setTimeout(() => {
         mapA.invalidateSize();
         mapB.invalidateSize();
+        mapC.invalidateSize();
       }, 120);
     });
 
