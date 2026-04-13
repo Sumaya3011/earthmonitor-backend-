@@ -829,15 +829,11 @@
       font-size: 11px;
       color: var(--text-muted);
       line-height: 1.35;
-      max-height: 4.5em;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      line-clamp: 3;
-      -webkit-box-orient: vertical;
+      max-height: 8.1em;
+      overflow-y: auto;
     }
 
-    .sample-chart {
+    .change-metrics {
       grid-column: 1 / -1;
       background: rgba(2, 6, 23, 0.58);
       border: 1px solid rgba(51, 65, 85, 0.92);
@@ -845,7 +841,7 @@
       padding: 10px;
     }
 
-    .sample-chart-title {
+    .change-metrics-title {
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
@@ -885,6 +881,134 @@
       font-size: 10px;
       min-width: 36px;
       text-align: right;
+    }
+
+    .report-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+
+    .report-btn {
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      background: linear-gradient(180deg, #2563eb, #1d4ed8);
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .report-btn:hover {
+      filter: brightness(1.06);
+    }
+
+    #reportBox {
+      position: fixed;
+      inset: 0;
+      z-index: 2100;
+      background: rgba(2, 6, 23, 0.72);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    #reportBox.show {
+      display: flex;
+    }
+
+    #reportInner {
+      width: min(620px, 96vw);
+      max-height: 88vh;
+      overflow: auto;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(51, 65, 85, 0.95);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+    }
+
+    .report-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .report-top h2 {
+      margin: 0;
+      font-size: 16px;
+      color: #f8fafc;
+    }
+
+    .btn-close {
+      border: 1px solid rgba(100, 116, 139, 0.65);
+      background: rgba(30, 41, 59, 0.95);
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 5px 9px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .report-card {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(51, 65, 85, 0.95);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .report-card h3 {
+      margin: 0 0 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #93c5fd;
+    }
+
+    .report-card p,
+    .report-card li {
+      font-size: 12px;
+      color: #e2e8f0;
+      line-height: 1.45;
+    }
+
+    .report-card ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .badge.low { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+    .badge.med { background: rgba(234, 179, 8, 0.2); color: #fde047; }
+    .badge.high { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+    .gpt-note {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+
+    .report-error {
+      color: #fda4af;
+      font-size: 12px;
+      white-space: pre-wrap;
     }
 
     .leaflet-control-layers {
@@ -980,6 +1104,10 @@
                   <input type="date" id="dateB" min="2018-01-01" />
                 </div>
               </div>
+              <div style="margin-top:8px;">
+                <small class="field-caption">Window (+/- days around each date for change detection)</small>
+                <input type="number" id="windowDays" min="1" max="180" value="30" />
+              </div>
             </div>
             <div class="toolbar-field city-field">
               <label for="city">Region</label>
@@ -1068,28 +1196,40 @@
       <div>
         <div class="report-label">Summary</div>
         <div class="report-text" id="report-summary">
-          Change detection report will appear here once you chat with the assistant.
+          Run change detection to load summary metrics.
         </div>
       </div>
-      <div class="sample-chart">
-        <div class="sample-chart-title">Example change stats (placeholder)</div>
+      <div class="change-metrics">
+        <div class="change-metrics-title">Change metrics</div>
+        <div class="chart-row">
+          <span class="chart-label">Changed pixels</span>
+          <div class="chart-bar-wrap"><div class="chart-bar" id="metric-change" style="width: 0%;"></div></div>
+          <span class="chart-val" id="metric-change-val">0%</span>
+        </div>
         <div class="chart-row">
           <span class="chart-label">Vegetation loss</span>
-          <div class="chart-bar-wrap"><div class="chart-bar" style="width: 34%;"></div></div>
-          <span class="chart-val">34%</span>
+          <div class="chart-bar-wrap"><div class="chart-bar" id="metric-veg" style="width: 0%;"></div></div>
+          <span class="chart-val" id="metric-veg-val">0%</span>
         </div>
         <div class="chart-row">
-          <span class="chart-label">Built-up gain</span>
-          <div class="chart-bar-wrap"><div class="chart-bar" style="width: 21%;"></div></div>
-          <span class="chart-val">21%</span>
-        </div>
-        <div class="chart-row">
-          <span class="chart-label">Water shift</span>
-          <div class="chart-bar-wrap"><div class="chart-bar" style="width: 8%;"></div></div>
-          <span class="chart-val">8%</span>
+          <span class="chart-label">Built change</span>
+          <div class="chart-bar-wrap"><div class="chart-bar" id="metric-built" style="width: 0%;"></div></div>
+          <span class="chart-val" id="metric-built-val">0%</span>
         </div>
       </div>
+      <div class="report-actions">
+        <button type="button" class="report-btn" id="btnReport">Generate report</button>
+      </div>
     </section>
+    <div id="reportBox" aria-hidden="true">
+      <div id="reportInner">
+        <div class="report-top">
+          <h2>Change detection report</h2>
+          <button type="button" class="btn-close" id="btnClose">Close</button>
+        </div>
+        <div id="reportContent"></div>
+      </div>
+    </div>
   </div>
 
   <script
@@ -1102,6 +1242,7 @@
   <script>
     const API_BASE = "";
     let lastMapData = null;
+    let lastChangeStats = null;
     let lastVideoUrl = null;
 
     const DW_CLASSES = [
@@ -1287,6 +1428,9 @@
     let dwLayerB = null;
     let dwLayerChangeA = null;
     let dwLayerChangeC = null;
+    let changeOverlayA = null;
+    let changeOverlayB = null;
+    let changeMaskOverlayC = null;
     let layerControlA = null;
     let layerControlB = null;
     let layerControlC = null;
@@ -1348,7 +1492,8 @@
         mode: currentMode(),
         date_a: document.getElementById("dateA").value,
         date_b: document.getElementById("dateB").value,
-        city: document.getElementById("city").value || ""
+        city: document.getElementById("city").value || "",
+        window_days: Number(document.getElementById("windowDays").value || 30),
       };
     }
 
@@ -1432,6 +1577,174 @@
       }
     }
 
+    function escapeHtml(s) {
+      if (!s) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function riskIcon(level) {
+      const u = (level || "").toUpperCase();
+      if (u === "LOW") return "🟢";
+      if (u === "MEDIUM") return "🟡";
+      return "🔴";
+    }
+
+    function riskBadgeClass(level) {
+      const u = (level || "").toUpperCase();
+      if (u === "LOW") return "low";
+      if (u === "MEDIUM") return "med";
+      return "high";
+    }
+
+    function setBar(id, value) {
+      const bar = document.getElementById(id);
+      if (!bar) return;
+      const num = Math.max(0, Math.min(100, Number(value || 0)));
+      bar.style.width = num.toFixed(2) + "%";
+    }
+
+    function setChangeMaskOverlay(url, bounds) {
+      if (!mapC) return;
+      if (changeMaskOverlayC) {
+        mapC.removeLayer(changeMaskOverlayC);
+        changeMaskOverlayC = null;
+      }
+      if (!url || !bounds || bounds.length < 2) return;
+      const b = [[bounds[0][0], bounds[0][1]], [bounds[1][0], bounds[1][1]]];
+      changeMaskOverlayC = L.imageOverlay(url, b, {
+        opacity: 0.78,
+        interactive: false,
+        crossOrigin: true,
+      }).addTo(mapC);
+      mapC.fitBounds(b, { padding: [18, 18], maxZoom: 13 });
+    }
+
+    function setBoundedOverlay(map, previousLayer, url, bounds, opacity) {
+      if (previousLayer) {
+        map.removeLayer(previousLayer);
+      }
+      if (!url || !bounds || bounds.length < 2) return null;
+      const b = [[bounds[0][0], bounds[0][1]], [bounds[1][0], bounds[1][1]]];
+      const layer = L.imageOverlay(url, b, {
+        opacity: opacity == null ? 0.9 : opacity,
+        interactive: false,
+        crossOrigin: true,
+      }).addTo(map);
+      map.fitBounds(b, { padding: [18, 18], maxZoom: 13 });
+      return layer;
+    }
+
+    function updateChangeSummary(stats) {
+      const summaryEl = document.getElementById("report-summary");
+      if (!stats) {
+        summaryEl.textContent = "Run change detection to load summary metrics.";
+        setBar("metric-change", 0);
+        setBar("metric-veg", 0);
+        setBar("metric-built", 0);
+        document.getElementById("metric-change-val").textContent = "0%";
+        document.getElementById("metric-veg-val").textContent = "0%";
+        document.getElementById("metric-built-val").textContent = "0%";
+        return;
+      }
+      const t = stats.top_transitions || [];
+      let summary =
+        "Changed pixels: " + stats.change_percent + "% · Risk: " + (stats.risk_level || "");
+      if (stats.dynamic_world_note) summary += " · " + stats.dynamic_world_note;
+      if (t.length) {
+        const top = t[0];
+        summary += " · Top transition: " + top.from_name + " -> " + top.to_name + " (" + top.percent_of_aoi + "%)";
+      }
+      summaryEl.textContent = summary;
+
+      setBar("metric-change", Number(stats.change_percent || 0));
+      setBar("metric-veg", Number(stats.vegetation_loss_percent || 0));
+      setBar("metric-built", Number(stats.built_change_percent || 0));
+      document.getElementById("metric-change-val").textContent = Number(stats.change_percent || 0).toFixed(2) + "%";
+      document.getElementById("metric-veg-val").textContent = Number(stats.vegetation_loss_percent || 0).toFixed(2) + "%";
+      document.getElementById("metric-built-val").textContent = Number(stats.built_change_percent || 0).toFixed(2) + "%";
+    }
+
+    async function loadChangeDetectionStats(state) {
+      try {
+        const res = await fetch(`${API_BASE}/api/change-detection`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date1: state.date_a,
+            date2: state.date_b,
+            window_days: state.window_days,
+            region_name: (state.city || "").trim() || null,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        lastChangeStats = data;
+        updateChangeSummary(data);
+        changeOverlayA = setBoundedOverlay(mapA, changeOverlayA, data.before_url, data.leaflet_bounds, 0.9);
+        changeOverlayB = setBoundedOverlay(mapB, changeOverlayB, data.after_url, data.leaflet_bounds, 0.9);
+        if (dwLayerA && mapA.hasLayer(dwLayerA)) {
+          mapA.removeLayer(dwLayerA);
+          dwLayerA = null;
+        }
+        if (dwLayerB && mapB.hasLayer(dwLayerB)) {
+          mapB.removeLayer(dwLayerB);
+          dwLayerB = null;
+        }
+        if (data.change_url && data.leaflet_bounds) {
+          if (mapC && dwLayerChangeC) {
+            mapC.removeLayer(dwLayerChangeC);
+            dwLayerChangeC = null;
+          }
+          setChangeMaskOverlay(data.change_url, data.leaflet_bounds);
+        }
+        if (data.region_label) {
+          document.getElementById("report-region").textContent = data.region_label;
+        }
+      } catch (err) {
+        lastChangeStats = null;
+        updateChangeSummary(null);
+        document.getElementById("report-summary").textContent = "Error loading change metrics: " + err.message;
+      }
+    }
+
+    function renderReport(data) {
+      const el = document.getElementById("reportContent");
+      if (data.detail && !data.metrics) {
+        el.innerHTML = '<div class="report-card report-error">' + escapeHtml(String(data.detail)) + "</div>";
+        return;
+      }
+      const m = data.metrics || {};
+      const n = data.narrative || {};
+      const dr = m.date_range || {};
+      const risk = (m.risk_level || "LOW").toUpperCase();
+      const trans = data.top_transitions || [];
+      let transHtml = "<ul>";
+      trans.slice(0, 10).forEach(function (t) {
+        transHtml += "<li>" + escapeHtml(t.from_name) + " -> " + escapeHtml(t.to_name) + ": " + t.percent_of_aoi + "%</li>";
+      });
+      transHtml += "</ul>";
+      if (!trans.length) transHtml = '<p class="meta-line">No transition breakdown for this run.</p>';
+      const recs = Array.isArray(n.recommendations) ? n.recommendations : [];
+      let recHtml = "<ul>";
+      recs.forEach(function (r) { recHtml += "<li>" + escapeHtml(r) + "</li>"; });
+      recHtml += "</ul>";
+      const gptNote = data.gpt_used ? "" : '<p class="gpt-note">OpenAI key not set - using built-in summary text.</p>';
+      el.innerHTML =
+        '<div class="report-card"><h3>Summary</h3>' +
+        '<p><strong>Region:</strong> ' + escapeHtml(m.region || "") + "</p>" +
+        '<p><strong>Date range:</strong> ' + escapeHtml(dr.start || "") + " -> " + escapeHtml(dr.end || "") + "</p>" +
+        "<p><strong>Area relabeled:</strong> " + (m.change_percent ?? 0) + "%</p>" +
+        '<p><span class="badge ' + riskBadgeClass(risk) + '">' + riskIcon(risk) + " " + risk + "</span></p>" +
+        gptNote + "</div>" +
+        '<div class="report-card"><h3>What changed</h3><p>' + escapeHtml(n.what_changed || "") + "</p>" + transHtml + "</div>" +
+        '<div class="report-card"><h3>Risk meaning</h3><p>' + escapeHtml(n.risk_meaning || "") + "</p></div>" +
+        '<div class="report-card"><h3>Recommendations</h3>' + recHtml + "</div>";
+    }
+
     async function loadMapFromBackend() {
       const state = getUIState();
 
@@ -1465,6 +1778,18 @@
         if (mapC && dwLayerChangeC) {
           mapC.removeLayer(dwLayerChangeC);
           dwLayerChangeC = null;
+        }
+        if (changeOverlayA) {
+          mapA.removeLayer(changeOverlayA);
+          changeOverlayA = null;
+        }
+        if (changeOverlayB) {
+          mapB.removeLayer(changeOverlayB);
+          changeOverlayB = null;
+        }
+        if (mapC && changeMaskOverlayC) {
+          mapC.removeLayer(changeMaskOverlayC);
+          changeMaskOverlayC = null;
         }
 
         const tiles = data.tiles || {};
@@ -1512,6 +1837,7 @@
           if (tiles.change) {
             dwLayerChangeC = L.tileLayer(tiles.change, { opacity: 0.82, crossOrigin: true }).addTo(mapC);
           }
+          await loadChangeDetectionStats(state);
           if (mapA.hasLayer(floodSpotsLayerA)) {
             mapA.removeLayer(floodSpotsLayerA);
           }
@@ -1538,6 +1864,8 @@
           if (!mapA.hasLayer(floodSpotsLayerA)) {
             floodSpotsLayerA.addTo(mapA);
           }
+          lastChangeStats = null;
+          updateChangeSummary(null);
         } else if (mode === "prediction" || mode === "timeseries") {
           mapGridRoot.classList.add("single-map-mode");
           mapGridRoot.classList.remove("has-change-row");
@@ -1563,12 +1891,15 @@
           if (mapA.hasLayer(floodSpotsLayerA)) {
             mapA.removeLayer(floodSpotsLayerA);
           }
+          lastChangeStats = null;
+          updateChangeSummary(null);
         }
 
         if (layerControlA) mapA.removeControl(layerControlA);
         const baseA = { "Original Satellite": satelliteA };
         const overlaysA = {};
         if (dwLayerA) overlaysA["Dynamic World"] = dwLayerA;
+        if (changeOverlayA) overlaysA["Dynamic World"] = changeOverlayA;
         if (dwLayerB && mapA.hasLayer(dwLayerB)) overlaysA["Dynamic World (B)"] = dwLayerB;
         if (dwLayerChangeA) overlaysA["Change Detection"] = dwLayerChangeA;
         if (mode === "home") overlaysA["Flood disaster spots"] = floodSpotsLayerA;
@@ -1579,6 +1910,7 @@
           const baseB = { "Original Satellite": satelliteB };
           const overlaysB = {};
           if (dwLayerB) overlaysB["Dynamic World"] = dwLayerB;
+          if (changeOverlayB) overlaysB["Dynamic World"] = changeOverlayB;
           layerControlB = L.control.layers(baseB, overlaysB, { position: "topleft" }).addTo(mapB);
 
           if (layerControlC && mapC) mapC.removeControl(layerControlC);
@@ -1587,6 +1919,7 @@
             const baseC = { "Original Satellite": satelliteC };
             const overlaysC = {};
             if (dwLayerChangeC) overlaysC["Change"] = dwLayerChangeC;
+            if (changeMaskOverlayC) overlaysC["Change mask"] = changeMaskOverlayC;
             layerControlC = L.control.layers(baseC, overlaysC, { position: "topleft" }).addTo(mapC);
           }
         } else {
@@ -1673,6 +2006,7 @@
 
     document.getElementById("dateA").addEventListener("change", loadMapFromBackend);
     document.getElementById("dateB").addEventListener("change", loadMapFromBackend);
+    document.getElementById("windowDays").addEventListener("change", loadMapFromBackend);
     document.getElementById("city").addEventListener("blur", loadMapFromBackend);
     document.querySelectorAll('input[name="mode"]').forEach(r =>
       r.addEventListener("change", () => {
@@ -1684,6 +2018,36 @@
 
     document.getElementById("generate-video-btn").addEventListener("click", generateTimeSeriesVideo);
     document.getElementById("video-preview-close").addEventListener("click", hideVideoPreview);
+    document.getElementById("btnClose").addEventListener("click", () => {
+      document.getElementById("reportBox").classList.remove("show");
+    });
+    document.getElementById("btnReport").addEventListener("click", async () => {
+      if (!lastChangeStats) {
+        alert("Run change detection first.");
+        return;
+      }
+      const box = document.getElementById("reportBox");
+      const el = document.getElementById("reportContent");
+      const state = getUIState();
+      el.innerHTML = '<div class="report-card"><p>Generating...</p></div>';
+      box.classList.add("show");
+      try {
+        const res = await fetch(`${API_BASE}/api/report`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            region: (state.city || "").trim() || lastChangeStats.region_label,
+            date_range: { start: state.date_a, end: state.date_b },
+            change_stats: lastChangeStats,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        renderReport(data);
+      } catch (err) {
+        el.innerHTML = '<div class="report-card report-error">Error: ' + escapeHtml(err.message) + "</div>";
+      }
+    });
 
     document.getElementById("region-chip-clear").addEventListener("click", () => {
       document.getElementById("city").value = "";
