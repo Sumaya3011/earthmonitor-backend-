@@ -1258,77 +1258,40 @@
 
     const FLOOD_SPOTS = [
       {
-        name: "Derna floods",
-        country: "Libya",
-        date: "Sep 2023",
-        lat: 32.767,
-        lon: 22.639,
-        severity: "Extreme",
-        note: "Storm Daniel caused dam failures and destructive flash flooding."
+        preset_id: "ae-abu",
+        name: "UAE (Abu Dhabi)",
+        line: "Flash flood · Mar-May 2024",
+        lat: 24.4539,
+        lon: 54.3773,
       },
       {
-        name: "Pakistan monsoon floods",
-        country: "Pakistan",
-        date: "Aug 2022",
-        lat: 26.0,
-        lon: 68.4,
-        severity: "Extreme",
-        note: "Widespread river flooding and long-duration inundation."
+        preset_id: "es-donana",
+        name: "Spain (Donana)",
+        line: "Drought / heatwave · Jun-Aug 2023",
+        lat: 37.03,
+        lon: -6.43,
       },
       {
-        name: "Ahr Valley flood",
-        country: "Germany",
-        date: "Jul 2021",
-        lat: 50.543,
+        preset_id: "in-monsoon",
+        name: "India (Assam)",
+        line: "Monsoon flood · May-Aug 2023",
+        lat: 26.2,
+        lon: 91.7,
+      },
+      {
+        preset_id: "pt-storm",
+        name: "Portugal (Lisbon)",
+        line: "Storm / flood · Nov 2022-Jan 2023",
+        lat: 38.7223,
+        lon: -9.1393,
+      },
+      {
+        preset_id: "de-ahr",
+        name: "Germany (Ahr Valley)",
+        line: "Major flood · Jun-Aug 2021",
+        lat: 50.52,
         lon: 7.1,
-        severity: "High",
-        note: "Record rainfall produced severe flash floods in western Germany."
       },
-      {
-        name: "Henan flood event",
-        country: "China",
-        date: "Jul 2021",
-        lat: 34.747,
-        lon: 113.625,
-        severity: "High",
-        note: "Urban flooding after extreme rainfall in Zhengzhou and nearby areas."
-      },
-      {
-        name: "Cyclone Idai flooding",
-        country: "Mozambique",
-        date: "Mar 2019",
-        lat: -19.833,
-        lon: 34.85,
-        severity: "Extreme",
-        note: "Coastal surge and inland flooding near Beira after Cyclone Idai."
-      },
-      {
-        name: "Kerala flood event",
-        country: "India",
-        date: "Aug 2018",
-        lat: 10.85,
-        lon: 76.271,
-        severity: "High",
-        note: "Heavy monsoon rainfall caused major flooding and landslides."
-      },
-      {
-        name: "South Brazil floods",
-        country: "Brazil",
-        date: "May 2024",
-        lat: -30.033,
-        lon: -51.23,
-        severity: "High",
-        note: "Historic rainfall in Rio Grande do Sul produced extensive inundation."
-      },
-      {
-        name: "Valencia flood emergency",
-        country: "Spain",
-        date: "Oct 2024",
-        lat: 39.469,
-        lon: -0.376,
-        severity: "Moderate",
-        note: "Mediterranean storm conditions caused localized flood impacts."
-      }
     ];
 
     const CHANGE_PRESET_OPTIONS = [
@@ -1431,6 +1394,88 @@
       });
     }
 
+    function getPresetById(presetId) {
+      return CHANGE_PRESET_OPTIONS.find((p) => p.id === presetId) || null;
+    }
+
+    function buildHomeSpotPopupHtml(spot, stats, loading, errorText) {
+      const title = "<strong>" + escapeHtml(spot.name) + "</strong><br><small>" + escapeHtml(spot.line || "") + "</small>";
+      if (loading) return title + "<br><small>Loading change summary...</small>";
+      if (errorText) return title + "<br><small style=\"color:#fecaca;\">" + escapeHtml(errorText) + "</small>";
+      if (!stats) return title + "<br><small>No summary available.</small>";
+      let topLine = "";
+      if (stats.top_transitions && stats.top_transitions.length) {
+        const t = stats.top_transitions[0];
+        topLine =
+          "<br><small>Top: " +
+          escapeHtml(t.from_name) +
+          " → " +
+          escapeHtml(t.to_name) +
+          " (" +
+          t.percent_of_aoi +
+          "%)</small>";
+      }
+      return (
+        title +
+        "<br><small>Changed: " +
+        stats.change_percent +
+        "% · Risk: " +
+        escapeHtml(stats.risk_level || "") +
+        "</small>" +
+        topLine +
+        "<br><button type=\"button\" class=\"secondary\" style=\"margin-top:8px;padding:0.35rem 0.6rem;font-size:0.75rem;\" onclick=\"openHomeSpotReport('" +
+        spot.preset_id +
+        "')\">Open full report</button>"
+      );
+    }
+
+    async function fetchPresetChangeStatsForHome(preset) {
+      const res = await fetch(`${API_BASE}/api/change-detection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date1: preset.date1,
+          date2: preset.date2,
+          region: preset.region_bbox || null,
+          region_name: preset.region,
+          window_days: preset.window || 30,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      return data;
+    }
+
+    async function openHomeSpotReport(presetId) {
+      const preset = getPresetById(presetId);
+      if (!preset) return;
+      applyChangePreset(preset, false);
+      await loadChangeDetectionMode(getUIState());
+      const stats = lastChangeStats;
+      if (!stats) return;
+      const box = document.getElementById("reportBox");
+      const el = document.getElementById("reportContent");
+      el.innerHTML = '<div class="card"><p>Generating…</p></div>';
+      box.classList.add("show");
+      try {
+        const res = await fetch(`${API_BASE}/api/report`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            region: preset.region || stats.region_label,
+            date_range: { start: preset.date1, end: preset.date2 },
+            change_stats: stats,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        renderReport(data);
+      } catch (err) {
+        el.innerHTML = '<div class="card err-box">Error: ' + escapeHtml(err.message) + "</div>";
+      }
+    }
+    window.openHomeSpotReport = openHomeSpotReport;
+
     function buildLegend() {
       const legend = document.getElementById("map-legend");
       const items = DW_CLASSES.map(c => `
@@ -1497,12 +1542,20 @@
         fillColor: "#22d3ee",
         fillOpacity: 0.9,
       });
-      marker.bindPopup(
-        `<strong>${spot.name}</strong><br>` +
-        `${spot.country} · ${spot.date}<br>` +
-        `<small>Severity: ${spot.severity}</small><br>` +
-        `<small>${spot.note}</small>`
-      );
+      marker.bindPopup(buildHomeSpotPopupHtml(spot, null, true, null), { maxWidth: 290 });
+      marker.on("click", async () => {
+        marker.setPopupContent(buildHomeSpotPopupHtml(spot, null, true, null));
+        try {
+          const preset = getPresetById(spot.preset_id);
+          if (!preset) throw new Error("Preset not found");
+          const stats = await fetchPresetChangeStatsForHome(preset);
+          marker.setPopupContent(buildHomeSpotPopupHtml(spot, stats, false, null));
+        } catch (err) {
+          marker.setPopupContent(
+            buildHomeSpotPopupHtml(spot, null, false, err && err.message ? err.message : "Failed to load summary")
+          );
+        }
+      });
       floodSpotsLayerA.addLayer(marker);
     });
 
@@ -2174,7 +2227,7 @@
         if (changeOverlayA) overlaysA["Dynamic World"] = changeOverlayA;
         if (dwLayerB && mapA.hasLayer(dwLayerB)) overlaysA["Dynamic World (B)"] = dwLayerB;
         if (dwLayerChangeA) overlaysA["Change Detection"] = dwLayerChangeA;
-        if (mode === "home") overlaysA["Flood disaster spots"] = floodSpotsLayerA;
+        if (mode === "home") overlaysA["Change case spots"] = floodSpotsLayerA;
         layerControlA = L.control.layers(baseA, overlaysA, { position: "topleft" }).addTo(mapA);
 
         if (mapA.hasLayer(floodSpotsLayerA)) {
