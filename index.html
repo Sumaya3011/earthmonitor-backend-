@@ -1373,6 +1373,7 @@
         title: "Germany (Ahr Valley)",
         line: "Major flood · Jun-Aug 2021",
         region: "Ahr Valley, Rhineland-Palatinate, Germany",
+        region_bbox: "6.74,50.43,7.25,50.63",
         date1: "2021-06-01",
         date2: "2021-08-31",
         window: 30,
@@ -1380,9 +1381,11 @@
     ];
 
     let selectedChangePresetId = null;
+    let selectedChangePresetRegionBbox = null;
 
     function clearChangePresetSelection() {
       selectedChangePresetId = null;
+      selectedChangePresetRegionBbox = null;
       const grid = document.getElementById("changePresetGrid");
       if (!grid) return;
       grid.querySelectorAll(".preset-card").forEach((c) => c.classList.remove("selected"));
@@ -1393,6 +1396,7 @@
       document.getElementById("dateB").value = preset.date2;
       document.getElementById("windowDays").value = String(preset.window || 30);
       document.getElementById("city").value = preset.region;
+      selectedChangePresetRegionBbox = preset.region_bbox || null;
       const changeMode = document.querySelector('input[name="mode"][value="change_detection"]');
       if (changeMode) changeMode.checked = true;
 
@@ -1593,6 +1597,7 @@
         date_a: document.getElementById("dateA").value,
         date_b: document.getElementById("dateB").value,
         city: document.getElementById("city").value || "",
+        region_bbox: selectedChangePresetRegionBbox,
         window_days: Number(document.getElementById("windowDays").value || 30),
       };
     }
@@ -1800,6 +1805,7 @@
           body: JSON.stringify({
             date1: date1,
             date2: date2,
+            region: state.region_bbox || null,
             window_days: windowDays,
             region_name: (state.city || "").trim() || null,
           }),
