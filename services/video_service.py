@@ -52,19 +52,13 @@ def add_frame_label(img: Image.Image, label: str) -> Image.Image:
     return img
 
 
-def ee_region_bbox(region: ee.Geometry):
-    coords = region.bounds().coordinates().getInfo()[0]
-    xs = [p[0] for p in coords]
-    ys = [p[1] for p in coords]
-    return [min(xs), min(ys), max(xs), max(ys)]
-
-
 def download_dw_frame(region: ee.Geometry, start_iso: str, end_iso: str, size: int, label: str) -> np.ndarray:
     vis = dw_visual_for_date_range(region, start_iso, end_iso)
-    bbox = ee_region_bbox(region)
+    # Same pattern as change_detection_service: GeoJSON from geometry (raw bbox lists mis-scale thumbs).
+    region_info = region.getInfo()
 
     url = vis.getThumbURL({
-        "region": bbox,
+        "region": region_info,
         "dimensions": size,
         "format": "png",
     })
@@ -75,6 +69,27 @@ def download_dw_frame(region: ee.Geometry, start_iso: str, end_iso: str, size: i
     img = Image.open(io.BytesIO(r.content)).convert("RGB")
     img = add_frame_label(img, label)
     return np.array(img)
+
+
+def interpolate_frames_linear(
+    frames: list, blends_between: int = 2
+) -> list:
+    """Insert alpha-blended frames between each pair for smoother transitions."""
+    if len(frames) < 2 or blends_between < 1:
+        return frames
+    out: list = []
+    for i in range(len(frames) - 1):
+        a = Image.fromarray(np.asarray(frames[i], dtype=np.uint8))
+        b = Image.fromarray(np.asarray(frames[i + 1], dtype=np.uint8))
+        if a.size != b.size:
+            b = b.resize(a.size, Image.LANCZOS)
+        out.append(np.array(a))
+        for k in range(1, blends_between + 1):
+            alpha = k / (blends_between + 1)
+            blended = Image.blend(a, b, alpha)
+            out.append(np.array(blended))
+    out.append(np.asarray(frames[-1], dtype=np.uint8))
+    return out
 
 
 def download_month_frame(region: ee.Geometry, y: int, m: int, size: int) -> np.ndarray:
@@ -176,14 +191,22 @@ def timeseries_video(req: VideoRequest):
             detail=f"Could not generate any {cadence} frames.",
         )
 
+    frames = interpolate_frames_linear(frames, blends_between=2)
+
     safe_city = city_name.replace(" ", "_").replace("/", "_")
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
     tmp_path = tmp.name
     tmp.close()
 
+    fps_val = float(req.fps) if req.fps is not None else 0.75
+    if fps_val < 0.25:
+        fps_val = 0.25
+    if fps_val > 30:
+        fps_val = 30.0
+
     writer = imageio.get_writer(
         tmp_path,
-        fps=max(1, req.fps),
+        fps=fps_val,
         codec="libx264",
         quality=8,
         pixelformat="yuv420p",

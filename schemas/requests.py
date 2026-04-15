@@ -22,9 +22,9 @@ class VideoRequest(BaseModel):
     year_a: int
     year_b: int
     city: Optional[str] = None
-    fps: int = 2
-    size: int = 768
-    radius_m: int = 5000
+    fps: float = 0.75
+    size: int = 1024
+    radius_m: int = 12000
     # "monthly" | "weekly" — frames from date_a through date_b when both ISO dates are sent;
     # otherwise year_a/year_b define the range (Jan 1 year_a .. Dec 31 year_b).
     cadence: str = "monthly"
