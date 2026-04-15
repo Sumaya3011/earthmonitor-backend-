@@ -828,7 +828,7 @@
     .video-preview {
       position: absolute;
       inset: 0;
-      z-index: 680;
+      z-index: 2000;
       background: rgba(2, 6, 23, 0.96);
       display: flex;
       flex-direction: column;
@@ -1236,11 +1236,24 @@
             </div>
             <div id="video-tools" class="video-inline" style="display:none;">
               <label>Time series video</label>
+              <div class="video-cadence-row" role="radiogroup" aria-label="Video frame cadence">
+                <p class="field-caption" style="margin-bottom:6px;">One frame per month or per week from Date A through Date B.</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                  <label class="monitor-radio" style="margin:0;">
+                    <input type="radio" name="video-cadence" value="monthly" checked />
+                    <span>Monthly</span>
+                  </label>
+                  <label class="monitor-radio" style="margin:0;">
+                    <input type="radio" name="video-cadence" value="weekly" />
+                    <span>Weekly</span>
+                  </label>
+                </div>
+              </div>
               <button id="generate-video-btn" type="button" class="video-btn" style="width:100%; margin-bottom:6px;">
-                Generate monthly video
+                Generate video
               </button>
               <div class="field-caption" id="video-status">
-                Creates a monthly MP4 for the selected years and region.
+                Uses Date A → Date B and your region. Preview appears on the map when ready.
               </div>
               <a
                 id="video-download-link"
@@ -2414,14 +2427,16 @@
               ? `Prediction · Y${data.dw_year_a ?? ""} vs Y${data.dw_year_b ?? ""}`
               : `Time series · Y${data.dw_year_a ?? ""} → Y${data.dw_year_b ?? ""}`;
 
-          if (tiles.a) {
-            dwLayerA = L.tileLayer(tiles.a, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
-          }
-          if (tiles.b) {
-            dwLayerB = L.tileLayer(tiles.b, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
-          }
-          if (tiles.change) {
-            dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.7, crossOrigin: true }).addTo(mapA);
+          if (mode === "prediction") {
+            if (tiles.a) {
+              dwLayerA = L.tileLayer(tiles.a, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
+            }
+            if (tiles.b) {
+              dwLayerB = L.tileLayer(tiles.b, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
+            }
+            if (tiles.change) {
+              dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.7, crossOrigin: true }).addTo(mapA);
+            }
           }
           if (mapA.hasLayer(floodSpotsLayerA)) {
             mapA.removeLayer(floodSpotsLayerA);
@@ -2453,6 +2468,11 @@
         }
         syncChangeModeLegends(false);
 
+        const mapLegendGlobal = document.getElementById("map-legend");
+        if (mapLegendGlobal) {
+          mapLegendGlobal.style.display = mode === "timeseries" ? "none" : "block";
+        }
+
         setTimeout(() => {
           mapA.invalidateSize();
           mapB.invalidateSize();
@@ -2465,13 +2485,22 @@
       }
     }
 
+    function getVideoCadence() {
+      const r = document.querySelector('input[name="video-cadence"]:checked');
+      return r && r.value === "weekly" ? "weekly" : "monthly";
+    }
+
     async function generateTimeSeriesVideo() {
       beginLoading();
       const status = document.getElementById("video-status");
       const link = document.getElementById("video-download-link");
       const state = getUIState();
+      const cadence = getVideoCadence();
 
-      status.textContent = "Generating monthly video... this can take some time.";
+      status.textContent =
+        cadence === "weekly"
+          ? "Generating weekly video... this can take some time."
+          : "Generating monthly video... this can take some time.";
       link.style.display = "none";
       link.removeAttribute("href");
 
@@ -2485,7 +2514,10 @@
             city: state.city,
             fps: 2,
             size: 768,
-            radius_m: 5000
+            radius_m: 5000,
+            cadence: cadence,
+            date_a: state.date_a || null,
+            date_b: state.date_b || null,
           }),
         });
 
@@ -2500,13 +2532,13 @@
         const url = URL.createObjectURL(blob);
 
         link.href = url;
-        link.download = `timeseries_${(state.city || "region").replace(/\s+/g, "_")}_${String(state.date_a).slice(0, 4)}_${String(state.date_b).slice(0, 4)}.mp4`;
+        link.download = `timeseries_${cadence}_${(state.city || "region").replace(/\s+/g, "_")}_${String(state.date_a).slice(0, 10)}_${String(state.date_b).slice(0, 10)}.mp4`;
         link.style.display = "inline-block";
         link.textContent = "Download video";
 
         showVideoPreview(
           url,
-          `Time series · ${String(state.date_a).slice(0, 4)} → ${String(state.date_b).slice(0, 4)}`
+          `Time series (${cadence}) · ${String(state.date_a).slice(0, 10)} → ${String(state.date_b).slice(0, 10)}`
         );
         status.textContent = "Video is ready.";
       } catch (err) {

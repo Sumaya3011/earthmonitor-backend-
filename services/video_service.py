@@ -1,5 +1,7 @@
 import io
 import tempfile
+from datetime import date, timedelta
+from typing import Iterator, Optional, Tuple
 
 import ee
 import imageio.v2 as imageio
@@ -16,30 +18,18 @@ import services.ee_runtime as ee_runtime
 from services.map_service import resolve_city
 
 
-def month_sequence(year_a: int, year_b: int):
-    months = []
-    for y in range(year_a, year_b + 1):
-        for m in range(1, 13):
-            months.append((y, m))
-    return months
-
-
 def next_month(y: int, m: int):
     if m == 12:
         return y + 1, 1
     return y, m + 1
 
 
-def monthly_dw_visual(region: ee.Geometry, y: int, m: int) -> ee.Image:
-    start = f"{y:04d}-{m:02d}-01"
-    ny, nm = next_month(y, m)
-    end = f"{ny:04d}-{nm:02d}-01"
-
+def dw_visual_for_date_range(region: ee.Geometry, start_iso: str, end_iso: str) -> ee.Image:
     palette = ["#" + c for c in CLASS_PALETTE]
 
     img = (
         ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1")
-        .filterDate(start, end)
+        .filterDate(start_iso, end_iso)
         .select("label")
         .mode()
     )
@@ -69,8 +59,8 @@ def ee_region_bbox(region: ee.Geometry):
     return [min(xs), min(ys), max(xs), max(ys)]
 
 
-def download_month_frame(region: ee.Geometry, y: int, m: int, size: int) -> np.ndarray:
-    vis = monthly_dw_visual(region, y, m)
+def download_dw_frame(region: ee.Geometry, start_iso: str, end_iso: str, size: int, label: str) -> np.ndarray:
+    vis = dw_visual_for_date_range(region, start_iso, end_iso)
     bbox = ee_region_bbox(region)
 
     url = vis.getThumbURL({
@@ -83,8 +73,57 @@ def download_month_frame(region: ee.Geometry, y: int, m: int, size: int) -> np.n
     r.raise_for_status()
 
     img = Image.open(io.BytesIO(r.content)).convert("RGB")
-    img = add_frame_label(img, f"{y}-{m:02d}")
+    img = add_frame_label(img, label)
     return np.array(img)
+
+
+def download_month_frame(region: ee.Geometry, y: int, m: int, size: int) -> np.ndarray:
+    start = f"{y:04d}-{m:02d}-01"
+    ny, nm = next_month(y, m)
+    end = f"{ny:04d}-{nm:02d}-01"
+    return download_dw_frame(region, start, end, size, f"{y}-{m:02d}")
+
+
+def parse_iso_date(s: str) -> Optional[date]:
+    if not s or not str(s).strip():
+        return None
+    try:
+        return date.fromisoformat(str(s).strip()[:10])
+    except ValueError:
+        return None
+
+
+def resolve_video_date_range(req: VideoRequest) -> Tuple[date, date]:
+    da = parse_iso_date(req.date_a or "")
+    db = parse_iso_date(req.date_b or "")
+    if da and db:
+        if db < da:
+            da, db = db, da
+        return da, db
+    return date(req.year_a, 1, 1), date(req.year_b, 12, 31)
+
+
+def iter_months_inclusive(d0: date, d1: date) -> Iterator[Tuple[int, int]]:
+    if d1 < d0:
+        d0, d1 = d1, d0
+    y, m = d0.year, d0.month
+    y_end, m_end = d1.year, d1.month
+    while (y, m) < (y_end, m_end) or (y == y_end and m == m_end):
+        yield y, m
+        if m == 12:
+            y, m = y + 1, 1
+        else:
+            m += 1
+
+
+def iter_week_starts(d0: date, d1: date) -> Iterator[date]:
+    """One frame per 7-day window starting at d0 until the window start passes d1."""
+    if d1 < d0:
+        d0, d1 = d1, d0
+    cur = d0
+    while cur <= d1:
+        yield cur
+        cur = cur + timedelta(days=7)
 
 
 def timeseries_video(req: VideoRequest):
@@ -95,26 +134,47 @@ def timeseries_video(req: VideoRequest):
             detail=f"Earth Engine is not ready: {ee_runtime.EE_ERROR}",
         )
 
-    if req.year_a > req.year_b:
+    da_chk = parse_iso_date(req.date_a or "")
+    db_chk = parse_iso_date(req.date_b or "")
+    if not (da_chk and db_chk) and req.year_a > req.year_b:
         raise HTTPException(status_code=400, detail="year_a must be <= year_b")
+
+    cadence = (req.cadence or "monthly").strip().lower()
+    if cadence not in ("monthly", "weekly"):
+        cadence = "monthly"
 
     city_name, lat, lon = resolve_city(req.city)
 
     point = ee.Geometry.Point([lon, lat])
     region = point.buffer(req.radius_m).bounds()
 
-    months = month_sequence(req.year_a, req.year_b)
+    d_start, d_end = resolve_video_date_range(req)
     frames = []
 
-    for y, m in months:
-        try:
-            frame = download_month_frame(region, y, m, req.size)
-            frames.append(frame)
-        except Exception as e:
-            print(f"Skipping frame {y}-{m:02d}: {e}")
+    if cadence == "weekly":
+        for week_start in iter_week_starts(d_start, d_end):
+            week_end = week_start + timedelta(days=7)
+            start_iso = week_start.isoformat()
+            end_iso = week_end.isoformat()
+            label = week_start.isoformat()
+            try:
+                frame = download_dw_frame(region, start_iso, end_iso, req.size, label)
+                frames.append(frame)
+            except Exception as e:
+                print(f"Skipping frame week {label}: {e}")
+    else:
+        for y, m in iter_months_inclusive(d_start, d_end):
+            try:
+                frame = download_month_frame(region, y, m, req.size)
+                frames.append(frame)
+            except Exception as e:
+                print(f"Skipping frame {y}-{m:02d}: {e}")
 
     if not frames:
-        raise HTTPException(status_code=500, detail="Could not generate any monthly frames.")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not generate any {cadence} frames.",
+        )
 
     safe_city = city_name.replace(" ", "_").replace("/", "_")
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
@@ -134,7 +194,9 @@ def timeseries_video(req: VideoRequest):
     finally:
         writer.close()
 
-    filename = f"timeseries_{safe_city}_{req.year_a}_{req.year_b}.mp4"
+    filename = (
+        f"timeseries_{cadence}_{safe_city}_{d_start.isoformat()}_{d_end.isoformat()}.mp4"
+    )
     return FileResponse(
         tmp_path,
         media_type="video/mp4",
