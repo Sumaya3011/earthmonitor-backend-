@@ -1337,6 +1337,8 @@
         title: "UAE (Abu Dhabi)",
         line: "Flash flood · Mar-May 2024",
         region: "Abu Dhabi, United Arab Emirates",
+        lat: 24.4539,
+        lon: 54.3773,
         date1: "2024-03-01",
         date2: "2024-05-31",
         window: 30,
@@ -1346,6 +1348,8 @@
         title: "Spain (Donana)",
         line: "Drought / heatwave · Jun-Aug 2023",
         region: "Donana National Park, Spain",
+        lat: 37.03,
+        lon: -6.43,
         date1: "2023-06-01",
         date2: "2023-08-31",
         window: 30,
@@ -1355,6 +1359,8 @@
         title: "India (Assam)",
         line: "Monsoon flood · May-Aug 2023",
         region: "Assam, India",
+        lat: 26.2,
+        lon: 91.7,
         date1: "2023-05-01",
         date2: "2023-08-31",
         window: 30,
@@ -1364,6 +1370,8 @@
         title: "Portugal (Lisbon)",
         line: "Storm / flood · Nov 2022-Jan 2023",
         region: "Lisbon, Portugal",
+        lat: 38.7223,
+        lon: -9.1393,
         date1: "2022-11-01",
         date2: "2023-01-31",
         window: 30,
@@ -1373,6 +1381,8 @@
         title: "Germany (Ahr Valley)",
         line: "Major flood · Jun-Aug 2021",
         region: "Ahr Valley, Rhineland-Palatinate, Germany",
+        lat: 50.52,
+        lon: 7.1,
         region_bbox: "6.74,50.43,7.25,50.63",
         date1: "2021-06-01",
         date2: "2021-08-31",
@@ -1489,20 +1499,102 @@
     });
 
     const floodSpotsLayerA = L.layerGroup();
-    FLOOD_SPOTS.forEach((spot) => {
-      const marker = L.circleMarker([spot.lat, spot.lon], {
+
+    function getPresetById(presetId) {
+      return CHANGE_PRESET_OPTIONS.find((p) => p.id === presetId) || null;
+    }
+
+    function renderSpotPopupHtml(preset, preview, loading, errorText) {
+      const title = `<strong>${escapeHtml(preset.title)}</strong><br><small>${escapeHtml(preset.line)}</small>`;
+      if (loading) {
+        return title + `<br><small>Loading change summary...</small>`;
+      }
+      if (errorText) {
+        return title + `<br><small style="color:#fecaca;">${escapeHtml(errorText)}</small>`;
+      }
+      if (!preview) {
+        return title + `<br><small>No summary yet.</small>`;
+      }
+      let topLine = "";
+      if (preview.top_transitions && preview.top_transitions.length) {
+        const t = preview.top_transitions[0];
+        topLine = `<br><small>Top: ${escapeHtml(t.from_name)} → ${escapeHtml(t.to_name)} (${t.percent_of_aoi}%)</small>`;
+      }
+      return (
+        title +
+        `<br><small>Changed: ${preview.change_percent}% · Risk: ${escapeHtml(preview.risk_level || "")}</small>` +
+        topLine +
+        `<br><button type="button" class="secondary" style="margin-top:8px;padding:0.35rem 0.6rem;font-size:0.75rem;" onclick="openPresetReportFromHome('${preset.id}')">Open full report</button>`
+      );
+    }
+
+    async function fetchPresetPreview(preset) {
+      const body = {
+        date1: preset.date1,
+        date2: preset.date2,
+        region: preset.region_bbox || null,
+        region_name: preset.region,
+        window_days: preset.window || 30,
+      };
+      const res = await fetch(`${API_BASE}/api/change-detection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      return data;
+    }
+
+    async function openPresetReportFromHome(presetId) {
+      const preset = getPresetById(presetId);
+      if (!preset) return;
+      applyChangePreset(preset, false);
+      await loadChangeDetectionMode(getUIState());
+      const stats = lastChangeStats;
+      if (!stats) return;
+      const box = document.getElementById("reportBox");
+      const el = document.getElementById("reportContent");
+      el.innerHTML = '<div class="card"><p>Generating…</p></div>';
+      box.classList.add("show");
+      try {
+        const res = await fetch(`${API_BASE}/api/report`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            region: preset.region || stats.region_label,
+            date_range: { start: preset.date1, end: preset.date2 },
+            change_stats: stats,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        renderReport(data);
+      } catch (err) {
+        el.innerHTML = '<div class="card err-box">Error: ' + escapeHtml(err.message) + "</div>";
+      }
+    }
+    window.openPresetReportFromHome = openPresetReportFromHome;
+
+    CHANGE_PRESET_OPTIONS.forEach((preset) => {
+      if (typeof preset.lat !== "number" || typeof preset.lon !== "number") return;
+      const marker = L.circleMarker([preset.lat, preset.lon], {
         radius: 6,
         color: "#0f172a",
         weight: 1.5,
         fillColor: "#22d3ee",
         fillOpacity: 0.9,
       });
-      marker.bindPopup(
-        `<strong>${spot.name}</strong><br>` +
-        `${spot.country} · ${spot.date}<br>` +
-        `<small>Severity: ${spot.severity}</small><br>` +
-        `<small>${spot.note}</small>`
-      );
+      marker.bindPopup(renderSpotPopupHtml(preset, null, true, null), { maxWidth: 290 });
+      marker.on("click", async () => {
+        marker.setPopupContent(renderSpotPopupHtml(preset, null, true, null));
+        try {
+          const preview = await fetchPresetPreview(preset);
+          marker.setPopupContent(renderSpotPopupHtml(preset, preview, false, null));
+        } catch (err) {
+          marker.setPopupContent(renderSpotPopupHtml(preset, null, false, err.message || "Failed to load summary"));
+        }
+      });
       floodSpotsLayerA.addLayer(marker);
     });
 
@@ -2174,10 +2266,10 @@
         if (changeOverlayA) overlaysA["Dynamic World"] = changeOverlayA;
         if (dwLayerB && mapA.hasLayer(dwLayerB)) overlaysA["Dynamic World (B)"] = dwLayerB;
         if (dwLayerChangeA) overlaysA["Change Detection"] = dwLayerChangeA;
-        if (mode === "home") overlaysA["Flood disaster spots"] = floodSpotsLayerA;
+        if (mode === "home") overlaysA["Preset change spots"] = floodSpotsLayerA;
         layerControlA = L.control.layers(baseA, overlaysA, { position: "topleft" }).addTo(mapA);
 
-        if (mapA.hasLayer(floodSpotsLayerA)) {
+        if (mode !== "home" && mapA.hasLayer(floodSpotsLayerA)) {
           mapA.removeLayer(floodSpotsLayerA);
         }
         if (layerControlB) {
