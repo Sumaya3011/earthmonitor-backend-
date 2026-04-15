@@ -2196,6 +2196,20 @@
       }
     }
 
+    function syncChangeModeViewportFromStats() {
+      if (!lastChangeStats || !lastChangeStats.leaflet_bounds || lastChangeStats.leaflet_bounds.length < 2) {
+        return;
+      }
+      const b = [
+        [lastChangeStats.leaflet_bounds[0][0], lastChangeStats.leaflet_bounds[0][1]],
+        [lastChangeStats.leaflet_bounds[1][0], lastChangeStats.leaflet_bounds[1][1]],
+      ];
+      const fitOpts = { padding: [18, 18], maxZoom: 13 };
+      mapA.fitBounds(b, fitOpts);
+      mapB.fitBounds(b, fitOpts);
+      if (mapC) mapC.fitBounds(b, fitOpts);
+    }
+
     async function loadChangeDetectionMode(state) {
       beginLoading();
       try {
@@ -2260,20 +2274,25 @@
         labelC.textContent = "Change mask · " + state.date_a + " → " + state.date_b;
 
         ensureMapC();
+        mapA.invalidateSize({ pan: false });
+        mapB.invalidateSize({ pan: false });
+        if (mapC) mapC.invalidateSize({ pan: false });
 
         await loadChangeDetectionStats(state);
+        syncChangeModeViewportFromStats();
 
         applyChangeModeLayerControls();
         syncChangeModeLegends(true);
 
-        if (mode !== "home" && mapA.hasLayer(floodSpotsLayerA)) {
+        if (mapA.hasLayer(floodSpotsLayerA)) {
           mapA.removeLayer(floodSpotsLayerA);
         }
 
         setTimeout(() => {
-          mapA.invalidateSize();
-          mapB.invalidateSize();
-          if (mapC) mapC.invalidateSize();
+          mapA.invalidateSize({ pan: false });
+          mapB.invalidateSize({ pan: false });
+          if (mapC) mapC.invalidateSize({ pan: false });
+          syncChangeModeViewportFromStats();
         }, 200);
       } catch (err) {
         console.error("loadChangeDetectionMode", err);
