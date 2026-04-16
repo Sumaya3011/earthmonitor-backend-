@@ -81,27 +81,6 @@ def download_dw_frame(region: ee.Geometry, start_iso: str, end_iso: str, size: i
     return np.array(img)
 
 
-def interpolate_frames_linear(
-    frames: list, blends_between: int = 2
-) -> list:
-    """Insert alpha-blended frames between each pair for smoother transitions."""
-    if len(frames) < 2 or blends_between < 1:
-        return frames
-    out: list = []
-    for i in range(len(frames) - 1):
-        a = Image.fromarray(np.asarray(frames[i], dtype=np.uint8))
-        b = Image.fromarray(np.asarray(frames[i + 1], dtype=np.uint8))
-        if a.size != b.size:
-            b = b.resize(a.size, Image.LANCZOS)
-        out.append(np.array(a))
-        for k in range(1, blends_between + 1):
-            alpha = k / (blends_between + 1)
-            blended = Image.blend(a, b, alpha)
-            out.append(np.array(blended))
-    out.append(np.asarray(frames[-1], dtype=np.uint8))
-    return out
-
-
 def download_month_frame(region: ee.Geometry, y: int, m: int, size: int) -> np.ndarray:
     start = f"{y:04d}-{m:02d}-01"
     ny, nm = next_month(y, m)
@@ -200,8 +179,6 @@ def timeseries_video(req: VideoRequest):
             status_code=500,
             detail=f"Could not generate any {cadence} frames.",
         )
-
-    frames = interpolate_frames_linear(frames, blends_between=2)
 
     safe_city = city_name.replace(" ", "_").replace("/", "_")
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
