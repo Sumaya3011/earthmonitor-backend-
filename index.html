@@ -296,6 +296,33 @@
       opacity: 0.9;
     }
 
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .help-btn {
+      border-radius: 999px;
+      border: 1px solid rgba(96, 165, 250, 0.55);
+      background: rgba(37, 99, 235, 0.22);
+      color: #dbeafe;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .help-btn:hover {
+      background: rgba(59, 130, 246, 0.34);
+      border-color: rgba(147, 197, 253, 0.75);
+      color: #f8fafc;
+    }
+
     @media (max-width: 640px) {
       .brand-meta {
         text-align: left;
@@ -602,6 +629,122 @@
       position: relative;
       display: flex;
       flex-direction: column;
+    }
+
+    .workspace-row {
+      display: block;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .assistant-dock {
+      display: none;
+    }
+
+    .app-root.chat-dock-open .workspace-row {
+      display: flex;
+      align-items: stretch;
+    }
+
+    .app-root.chat-dock-open .map-stage {
+      width: 75%;
+      min-width: 0;
+    }
+
+    .app-root.chat-dock-open .assistant-dock {
+      width: 25%;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      background: rgba(15, 23, 42, 0.95);
+      border-left: 1px solid rgba(51, 65, 85, 0.9);
+      backdrop-filter: blur(10px);
+      padding: 10px;
+      gap: 8px;
+    }
+
+    .assistant-dock-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 2px 2px 0;
+    }
+
+    .assistant-dock-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+
+    .assistant-dock-close {
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      background: rgba(30, 41, 59, 0.9);
+      color: #e5e7eb;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .assistant-dock .chat-messages {
+      max-height: none;
+      min-height: 0;
+      height: 100%;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 8px;
+    }
+
+    .assistant-dock .message {
+      max-width: 100%;
+    }
+
+    .assistant-dock .bubble {
+      border-radius: 12px;
+      white-space: normal;
+      text-overflow: clip;
+      max-width: 100%;
+      font-size: 12px;
+      padding: 7px 10px;
+    }
+
+    .assistant-dock .chat-form {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    @media (max-width: 1100px) {
+      .app-root.chat-dock-open .map-stage {
+        width: 65%;
+      }
+      .app-root.chat-dock-open .assistant-dock {
+        width: 35%;
+        min-width: 260px;
+      }
+    }
+
+    @media (max-width: 840px) {
+      .app-root.chat-dock-open .workspace-row {
+        display: block;
+      }
+      .app-root.chat-dock-open .map-stage {
+        width: 100%;
+      }
+      .app-root.chat-dock-open .assistant-dock {
+        width: 100%;
+        min-width: 0;
+        border-left: none;
+        border-top: 1px solid rgba(51, 65, 85, 0.9);
+      }
     }
 
     .map-container {
@@ -1224,31 +1367,12 @@
             <div class="top-brand-title">EarthMonitor</div>
             <p class="top-brand-subtitle">Dynamic World by day — Home shows one map (world or your region). Pick dates and modes below.</p>
           </div>
-          <p class="brand-meta">Dynamic World · Earth Engine · OpenAI</p>
-        </div>
-
-        <div class="site-header-chat" aria-label="Assistant chat">
-          <div class="chat-row-head">
-            <span class="assistant-label">Assistant</span>
-            <button type="button" class="chat-toggle" aria-expanded="true" aria-controls="chat-messages" title="Show or hide transcript">−</button>
+          <div class="top-actions">
+            <p class="brand-meta">Dynamic World · Earth Engine · OpenAI</p>
+            <button type="button" class="help-btn" id="help-open-btn" title="Open AI help assistant">
+              Help
+            </button>
           </div>
-          <div class="chat-messages" id="chat-messages">
-            <div class="message bot">
-              <div class="bubble bot" title="Hi! I can help you explore Dynamic World land cover using the dates and region you pick.">
-                Hi! I can help you explore Dynamic World land cover using the dates and region you pick.
-              </div>
-            </div>
-          </div>
-          <form class="chat-form" onsubmit="handleChatSubmit(event)">
-            <input
-              type="text"
-              id="chat-input"
-              class="chat-input"
-              placeholder="Message the assistant…"
-              autocomplete="off"
-            />
-            <button type="submit" class="chat-send">Send</button>
-          </form>
         </div>
 
         <div class="site-header-controls">
@@ -1350,9 +1474,10 @@
       </div>
     </header>
 
-    <main class="map-stage">
-      <div class="map-container">
-        <div class="map-grid" id="map-grid-root">
+    <div class="workspace-row">
+      <main class="map-stage">
+        <div class="map-container">
+          <div class="map-grid" id="map-grid-root">
           <div class="map-grid-row">
             <div class="map-panel" id="map-panel-a">
               <div class="map-panel-header map-panel-header-row">
@@ -1386,10 +1511,33 @@
             <div class="map-inner"><div id="mapC"></div></div>
           </div>
         </div>
-        <div class="map-legend" id="map-legend"></div>
-      </div>
-
-    </main>
+          <div class="map-legend" id="map-legend"></div>
+        </div>
+      </main>
+      <aside class="assistant-dock" id="assistant-dock" aria-label="AI Help Assistant">
+        <div class="assistant-dock-head">
+          <span class="assistant-dock-title">AI Help</span>
+          <button type="button" class="assistant-dock-close" id="help-close-btn">Close</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <div class="message bot">
+            <div class="bubble bot" title="Ask what action to take, and I will guide you step by step.">
+              Ask what action to take, and I will guide you step by step.
+            </div>
+          </div>
+        </div>
+        <form class="chat-form" onsubmit="handleChatSubmit(event)">
+          <input
+            type="text"
+            id="chat-input"
+            class="chat-input"
+            placeholder="Ask for guidance..."
+            autocomplete="off"
+          />
+          <button type="submit" class="chat-send">Send</button>
+        </form>
+      </aside>
+    </div>
     <footer id="change-analysis-footer" hidden>
       <strong>Summary Analysis</strong>
       <div id="summary">Run Generate to load statistics.</div>
@@ -2927,13 +3075,29 @@
       }, 120);
     });
 
-    document.querySelector(".chat-toggle").addEventListener("click", () => {
-      const box = document.getElementById("chat-messages");
-      const btn = document.querySelector(".chat-toggle");
-      const nowCollapsed = box.classList.toggle("collapsed");
-      btn.setAttribute("aria-expanded", nowCollapsed ? "false" : "true");
-      btn.textContent = nowCollapsed ? "+" : "−";
-    });
+    function setAssistantDockOpen(open) {
+      const root = document.querySelector(".app-root");
+      if (!root) return;
+      root.classList.toggle("chat-dock-open", !!open);
+      setTimeout(() => {
+        mapA.invalidateSize();
+        mapB.invalidateSize();
+        if (mapC) mapC.invalidateSize();
+      }, 160);
+      if (open) {
+        const input = document.getElementById("chat-input");
+        if (input) input.focus();
+      }
+    }
+
+    const helpOpenBtn = document.getElementById("help-open-btn");
+    if (helpOpenBtn) {
+      helpOpenBtn.addEventListener("click", () => setAssistantDockOpen(true));
+    }
+    const helpCloseBtn = document.getElementById("help-close-btn");
+    if (helpCloseBtn) {
+      helpCloseBtn.addEventListener("click", () => setAssistantDockOpen(false));
+    }
 
     function appendMessage(role, text) {
       const container = document.getElementById("chat-messages");
