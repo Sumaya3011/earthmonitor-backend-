@@ -489,6 +489,69 @@
       padding: 8px;
     }
 
+    .prediction-controls-panel {
+      display: none;
+      width: 100%;
+      min-width: 0;
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      border-radius: 12px;
+      background: rgba(2, 6, 23, 0.62);
+      padding: 8px;
+    }
+
+    .prediction-controls-panel .field-caption {
+      margin-bottom: 8px;
+    }
+
+    .prediction-view {
+      position: absolute;
+      inset: 0;
+      z-index: 700;
+      background: rgba(2, 6, 23, 0.98);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px;
+    }
+
+    .prediction-view[hidden] {
+      display: none !important;
+    }
+
+    .prediction-image {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 10px;
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      background: #000;
+    }
+
+    .prediction-image[hidden] {
+      display: none !important;
+    }
+
+    .prediction-msg {
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      color: #cbd5e1;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.86);
+      border: 1px solid rgba(71, 85, 105, 0.8);
+    }
+
+    .prediction-msg.error {
+      color: #fca5a5;
+      border-color: rgba(248, 113, 113, 0.6);
+      background: rgba(127, 29, 29, 0.25);
+    }
+
     #video-tools.video-inline {
       width: 100%;
       min-width: 0;
@@ -1585,6 +1648,24 @@
                 <button type="button" id="region-chip-clear" title="Clear region and return to world view">×</button>
               </div>
             </div>
+            <div class="toolbar-field prediction-controls-panel" id="prediction-controls-panel">
+              <label for="prediction-region">Prediction input</label>
+              <div class="field-caption">Choose region and date from available prediction image files.</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div>
+                  <small class="field-caption">Region</small>
+                  <select id="prediction-region">
+                    <option value="">Select region</option>
+                  </select>
+                </div>
+                <div>
+                  <small class="field-caption">Date</small>
+                  <select id="prediction-date">
+                    <option value="">Select date</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             <div id="video-tools" class="video-inline" style="display:none;">
               <label>Time series video</label>
               <div class="video-cadence-row" role="radiogroup" aria-label="Video frame cadence">
@@ -1628,6 +1709,10 @@
               </div>
               <div class="map-inner">
                 <div id="mapA"></div>
+                <div class="prediction-view" id="prediction-view" hidden>
+                  <img id="prediction-image" class="prediction-image" alt="Prediction image" hidden />
+                  <div id="prediction-msg" class="prediction-msg">Select region and date to load prediction image.</div>
+                </div>
                 <div class="video-preview" id="video-preview" hidden>
                   <div class="video-preview-head">
                     <span id="video-preview-title">Time series preview</span>
@@ -1725,6 +1810,14 @@
     let citySuggestSeq = 0;
     let citySuggestHighlight = -1;
     let citySuggestItems = [];
+    const PREDICTION_IMAGE_BASE_URL =
+      "https://raw.githubusercontent.com/Khawla-Alneyadi/Senior2-AI-Climate-Analysis-and-Prediction/main/outputs/";
+    const PREDICTION_AVAILABLE_FILENAMES = [
+      "abudhabi_2026-04-01_predicted_full_rgb.png",
+      "abudhabi_2026-04-08_predicted_full_rgb.png",
+      "abudhabi_2026-04-15_predicted_full_rgb.png",
+    ];
+    const predictionDatesByRegion = new Map();
 
     const DW_CLASSES = [
       { label: "Water", color: "#419bdf" },
@@ -2171,10 +2264,17 @@
 
     function updateDateUIForMode() {
       const mode = currentMode();
+      const dateControls = document.getElementById("date-controls-row");
+      const cityField = document.querySelector(".city-field");
       const bBox = document.getElementById("dateB-container");
       const presetsWrap = document.querySelector(".change-presets");
       const presetsPanel = document.getElementById("change-presets-panel");
+      const predictionPanel = document.getElementById("prediction-controls-panel");
       const windowWrap = document.getElementById("change-window-wrap");
+      const showPredictionOnly = mode === "prediction";
+      if (dateControls) dateControls.style.display = showPredictionOnly ? "none" : "block";
+      if (cityField) cityField.style.display = showPredictionOnly ? "none" : "block";
+      if (predictionPanel) predictionPanel.style.display = showPredictionOnly ? "block" : "none";
       if (mode === "home") {
         bBox.style.display = "none";
       } else {
@@ -2189,6 +2289,165 @@
     function updateVideoToolsVisibility() {
       const tools = document.getElementById("video-tools");
       tools.style.display = currentMode() === "timeseries" ? "block" : "none";
+    }
+
+    function parsePredictionFilename(name) {
+      const m = /^(.+)_((?:19|20)\d{2}-\d{2}-\d{2})_predicted_full_rgb\.png$/i.exec(String(name || "").trim());
+      if (!m) return null;
+      return { region: m[1].toLowerCase(), date: m[2] };
+    }
+
+    function predictionRegionLabel(region) {
+      return String(region || "")
+        .replace(/[_\-]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    function buildPredictionFilename(region, date) {
+      return `${region}_${date}_predicted_full_rgb.png`;
+    }
+
+    function showPredictionMessage(text, isError) {
+      const msg = document.getElementById("prediction-msg");
+      if (!msg) return;
+      msg.textContent = text || "";
+      msg.classList.toggle("error", !!isError);
+      msg.hidden = false;
+    }
+
+    function populatePredictionRegionOptions() {
+      predictionDatesByRegion.clear();
+      PREDICTION_AVAILABLE_FILENAMES.forEach((f) => {
+        const p = parsePredictionFilename(f);
+        if (!p) return;
+        if (!predictionDatesByRegion.has(p.region)) predictionDatesByRegion.set(p.region, new Set());
+        predictionDatesByRegion.get(p.region).add(p.date);
+      });
+      const regionSelect = document.getElementById("prediction-region");
+      if (!regionSelect) return;
+      regionSelect.innerHTML = '<option value="">Select region</option>';
+      Array.from(predictionDatesByRegion.keys())
+        .sort((a, b) => a.localeCompare(b))
+        .forEach((r) => {
+          const opt = document.createElement("option");
+          opt.value = r;
+          opt.textContent = predictionRegionLabel(r);
+          regionSelect.appendChild(opt);
+        });
+    }
+
+    function updatePredictionDateOptions() {
+      const regionSelect = document.getElementById("prediction-region");
+      const dateSelect = document.getElementById("prediction-date");
+      if (!regionSelect || !dateSelect) return;
+      const region = String(regionSelect.value || "").trim().toLowerCase();
+      const prev = dateSelect.value;
+      dateSelect.innerHTML = '<option value="">Select date</option>';
+      const dates = predictionDatesByRegion.has(region)
+        ? Array.from(predictionDatesByRegion.get(region))
+        : [];
+      dates.sort((a, b) => a.localeCompare(b)).forEach((d) => {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = d;
+        dateSelect.appendChild(opt);
+      });
+      if (dates.includes(prev)) {
+        dateSelect.value = prev;
+      } else {
+        dateSelect.value = "";
+      }
+    }
+
+    function loadPredictionImageFromSelection() {
+      const region = (document.getElementById("prediction-region") || {}).value || "";
+      const date = (document.getElementById("prediction-date") || {}).value || "";
+      const img = document.getElementById("prediction-image");
+      if (!img) return;
+      img.hidden = true;
+      img.removeAttribute("src");
+      if (!region || !date) {
+        showPredictionMessage("Select region and date to load prediction image.", false);
+        return;
+      }
+      const filename = buildPredictionFilename(region, date);
+      const url = PREDICTION_IMAGE_BASE_URL + filename;
+      showPredictionMessage("Loading prediction image...", false);
+      img.onload = () => {
+        img.hidden = false;
+        const msg = document.getElementById("prediction-msg");
+        if (msg) msg.hidden = true;
+      };
+      img.onerror = () => {
+        img.hidden = true;
+        img.removeAttribute("src");
+        showPredictionMessage("Image not available for this region and date", true);
+      };
+      img.src = url;
+    }
+
+    function renderPredictionModeOnlyView() {
+      const mapGridRoot = document.getElementById("map-grid-root");
+      const panelA = document.getElementById("map-panel-a");
+      const panelB = document.getElementById("map-panel-b");
+      const panelC = document.getElementById("map-panel-c");
+      const changeFooter = document.getElementById("change-analysis-footer");
+      const labelA = document.getElementById("map-panel-a-label");
+      const chipWrap = document.getElementById("region-chip-wrap");
+      const mapAEl = document.getElementById("mapA");
+      const predictionView = document.getElementById("prediction-view");
+
+      mapGridRoot.classList.add("single-map-mode");
+      mapGridRoot.classList.remove("has-change-row");
+      panelB.hidden = true;
+      panelC.hidden = true;
+      if (changeFooter) changeFooter.hidden = true;
+      panelA.style.display = "flex";
+      panelB.style.display = "none";
+      labelA.textContent = "Prediction";
+
+      if (chipWrap) chipWrap.hidden = true;
+      if (mapAEl) mapAEl.style.display = "none";
+      if (predictionView) predictionView.hidden = false;
+
+      if (mapA.hasLayer(floodSpotsLayerA)) mapA.removeLayer(floodSpotsLayerA);
+      if (dwLayerA && mapA.hasLayer(dwLayerA)) mapA.removeLayer(dwLayerA);
+      if (dwLayerB && mapA.hasLayer(dwLayerB)) mapA.removeLayer(dwLayerB);
+      if (dwLayerChangeA && mapA.hasLayer(dwLayerChangeA)) mapA.removeLayer(dwLayerChangeA);
+      if (changeOverlayA && mapA.hasLayer(changeOverlayA)) mapA.removeLayer(changeOverlayA);
+      if (changeOverlayB && mapB.hasLayer(changeOverlayB)) mapB.removeLayer(changeOverlayB);
+      if (mapC && changeMaskOverlayC && mapC.hasLayer(changeMaskOverlayC)) mapC.removeLayer(changeMaskOverlayC);
+
+      dwLayerA = null;
+      dwLayerB = null;
+      dwLayerChangeA = null;
+      changeOverlayA = null;
+      changeOverlayB = null;
+      changeMaskOverlayC = null;
+      lastChangeStats = null;
+      clearSummaryFromChangeStats();
+
+      if (layerControlA) mapA.removeControl(layerControlA);
+      layerControlA = L.control.layers({ "Original Satellite": satelliteA }, {}, { position: "topleft" }).addTo(mapA);
+      if (layerControlB) {
+        mapB.removeControl(layerControlB);
+        layerControlB = null;
+      }
+      if (layerControlC && mapC) {
+        mapC.removeControl(layerControlC);
+        layerControlC = null;
+      }
+
+      syncChangeModeLegends(false);
+      const mapLegendGlobal = document.getElementById("map-legend");
+      if (mapLegendGlobal) mapLegendGlobal.style.display = "none";
+
+      loadPredictionImageFromSelection();
+      setTimeout(() => {
+        mapA.invalidateSize();
+        mapB.invalidateSize();
+        if (mapC) mapC.invalidateSize();
+      }, 120);
     }
 
     function showVideoPreview(url, title) {
@@ -2785,6 +3044,11 @@
     async function loadMapFromBackend(showLoader = true) {
       if (showLoader) beginLoading();
       const state = getUIState();
+      if (state.mode === "prediction") {
+        renderPredictionModeOnlyView();
+        if (showLoader) endLoading();
+        return;
+      }
       if (state.mode === "change_detection") {
         await loadChangeDetectionMode(state, showLoader);
         if (showLoader) endLoading();
@@ -2847,6 +3111,11 @@
         const labelA = document.getElementById("map-panel-a-label");
         const labelB = document.getElementById("map-panel-b-label");
         const labelC = document.getElementById("map-panel-c-label");
+        const mapAEl = document.getElementById("mapA");
+        const predictionView = document.getElementById("prediction-view");
+
+        if (mapAEl) mapAEl.style.display = "block";
+        if (predictionView) predictionView.hidden = true;
 
         const chipWrap = document.getElementById("region-chip-wrap");
         const cityVal = (state.city || "").trim();
@@ -2882,7 +3151,7 @@
           }
           lastChangeStats = null;
           clearSummaryFromChangeStats();
-        } else if (mode === "prediction" || mode === "timeseries") {
+        } else if (mode === "timeseries") {
           mapGridRoot.classList.add("single-map-mode");
           mapGridRoot.classList.remove("has-change-row");
           panelB.hidden = true;
@@ -2891,21 +3160,7 @@
           panelA.style.display = "flex";
           panelB.style.display = "none";
           labelA.textContent =
-            mode === "prediction"
-              ? `Prediction · Y${data.dw_year_a ?? ""} vs Y${data.dw_year_b ?? ""}`
-              : `Time series · Y${data.dw_year_a ?? ""} → Y${data.dw_year_b ?? ""}`;
-
-          if (mode === "prediction") {
-            if (tiles.a) {
-              dwLayerA = L.tileLayer(tiles.a, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
-            }
-            if (tiles.b) {
-              dwLayerB = L.tileLayer(tiles.b, { opacity: 0.8, crossOrigin: true }).addTo(mapA);
-            }
-            if (tiles.change) {
-              dwLayerChangeA = L.tileLayer(tiles.change, { opacity: 0.7, crossOrigin: true }).addTo(mapA);
-            }
-          }
+            `Time series · Y${data.dw_year_a ?? ""} → Y${data.dw_year_b ?? ""}`;
           if (mapA.hasLayer(floodSpotsLayerA)) {
             mapA.removeLayer(floodSpotsLayerA);
           }
@@ -3149,6 +3404,12 @@
       loadMapFromBackend();
     });
 
+    document.getElementById("prediction-region").addEventListener("change", () => {
+      updatePredictionDateOptions();
+      loadPredictionImageFromSelection();
+    });
+    document.getElementById("prediction-date").addEventListener("change", loadPredictionImageFromSelection);
+
     async function downloadMapSnapshot(map, panelTitle) {
       if (typeof html2canvas === "undefined") {
         alert("Download library did not load. Check your network.");
@@ -3215,6 +3476,8 @@
     });
 
     buildChangePresetGrid();
+    populatePredictionRegionOptions();
+    updatePredictionDateOptions();
     initDateInputs();
     updateDateUIForMode();
     updateVideoToolsVisibility();
