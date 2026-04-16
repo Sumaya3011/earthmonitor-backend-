@@ -364,11 +364,17 @@
     .site-header-controls {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
+      align-items: flex-end;
       gap: 10px 14px;
       padding-top: 12px;
       margin-top: 8px;
       border-top: 1px solid rgba(51, 65, 85, 0.55);
+    }
+
+    @media (min-width: 900px) {
+      .site-header-controls {
+        align-items: center;
+      }
     }
 
     .monitor-toolbar-label {
@@ -401,7 +407,10 @@
       background: rgba(2, 6, 23, 0.82);
       border: 1px solid rgba(71, 85, 105, 0.92);
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
-      align-self: center;
+      align-self: flex-start;
+      position: sticky;
+      top: 0;
+      z-index: 20;
     }
 
     .monitor-radio {
@@ -678,26 +687,9 @@
     }
 
     .workspace-row {
-      display: flex;
-      align-items: stretch;
-      gap: 10px;
+      display: block;
       flex: 1 1 auto;
       min-height: 0;
-    }
-
-    .controls-dock {
-      width: clamp(280px, 23vw, 360px);
-      min-width: 260px;
-      border: 1px solid rgba(51, 65, 85, 0.9);
-      border-radius: 14px;
-      background: rgba(15, 23, 42, 0.82);
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: thin;
     }
 
     .assistant-dock {
@@ -832,15 +824,6 @@
       .app-root.chat-dock-open .workspace-row,
       .app-root.chat-dock-open #change-analysis-footer {
         margin-right: 0;
-      }
-
-      .workspace-row {
-        display: block;
-      }
-      .controls-dock {
-        width: 100%;
-        min-width: 0;
-        margin-bottom: 8px;
       }
     }
 
@@ -1528,8 +1511,9 @@
         </div>
 
         <div class="site-header-controls">
-          <span class="monitor-toolbar-label">Modes</span>
-          <div class="mode-segments" role="radiogroup" aria-label="Analysis mode">
+          <span class="monitor-toolbar-label">Map controls</span>
+          <div class="monitor-toolbar">
+            <div class="mode-segments" role="radiogroup" aria-label="Analysis mode">
             <label class="monitor-radio">
               <input type="radio" name="mode" value="home" checked />
               <span>Home</span>
@@ -1546,15 +1530,8 @@
               <input type="radio" name="mode" value="prediction" />
               <span>Prediction</span>
             </label>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <div class="workspace-row">
-      <aside class="controls-dock" aria-label="Map controls">
-        <span class="monitor-toolbar-label">Map controls</span>
-        <div class="toolbar-fields">
+            </div>
+            <div class="toolbar-fields">
             <div class="toolbar-field" id="date-controls-row">
               <label>Dates</label>
               <div class="year-row">
@@ -1628,8 +1605,13 @@
                 Download video
               </a>
             </div>
+            </div>
+          </div>
         </div>
-      </aside>
+      </div>
+    </header>
+
+    <div class="workspace-row">
       <main class="map-stage">
         <div class="map-container">
           <div class="map-grid" id="map-grid-root">
