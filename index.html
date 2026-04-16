@@ -2555,7 +2555,7 @@
               maxNativeZoom: data.city === "World" ? 14 : 19,
               maxZoom: 19,
               crossOrigin: true,
-            }).addTo(mapA);
+            });
           }
           if (!mapA.hasLayer(floodSpotsLayerA)) {
             floodSpotsLayerA.addTo(mapA);
@@ -2603,7 +2603,7 @@
         if (mode === "home") overlaysA["Change case spots"] = floodSpotsLayerA;
         layerControlA = L.control.layers(baseA, overlaysA, { position: "topleft" }).addTo(mapA);
 
-        if (mapA.hasLayer(floodSpotsLayerA)) {
+        if (mode !== "home" && mapA.hasLayer(floodSpotsLayerA)) {
           mapA.removeLayer(floodSpotsLayerA);
         }
         if (layerControlB) {
@@ -2618,7 +2618,8 @@
 
         const mapLegendGlobal = document.getElementById("map-legend");
         if (mapLegendGlobal) {
-          mapLegendGlobal.style.display = mode === "timeseries" ? "none" : "block";
+          mapLegendGlobal.style.display =
+            mode === "timeseries" || mode === "home" ? "none" : "block";
         }
 
         setTimeout(() => {
