@@ -727,6 +727,28 @@
       gap: 8px;
       align-items: center;
       flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .chat-loading-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: #93c5fd;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .chat-loading-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 2px solid rgba(147, 197, 253, 0.45);
+      border-top-color: #60a5fa;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
     }
 
     @media (max-width: 1100px) {
@@ -1545,6 +1567,10 @@
             autocomplete="off"
           />
           <button type="submit" class="chat-send">Send</button>
+          <span id="chat-loading-indicator" class="chat-loading-indicator" hidden>
+            <span class="chat-loading-dot"></span>
+            AI thinking...
+          </span>
         </form>
       </aside>
     </div>
@@ -1583,6 +1609,7 @@
     let lastChangeStats = null;
     let lastVideoUrl = null;
     let busyCount = 0;
+    let chatBusyCount = 0;
     let citySuggestTimer = null;
     let citySuggestSeq = 0;
     let citySuggestHighlight = -1;
@@ -1612,6 +1639,27 @@
         const box = document.getElementById("globalLoading");
         if (box) box.classList.remove("show");
       }
+    }
+
+    function beginChatLoading() {
+      chatBusyCount += 1;
+      const badge = document.getElementById("chat-loading-indicator");
+      const input = document.getElementById("chat-input");
+      const send = document.querySelector(".assistant-dock .chat-send");
+      if (badge) badge.hidden = false;
+      if (input) input.disabled = true;
+      if (send) send.disabled = true;
+    }
+
+    function endChatLoading() {
+      chatBusyCount = Math.max(0, chatBusyCount - 1);
+      if (chatBusyCount !== 0) return;
+      const badge = document.getElementById("chat-loading-indicator");
+      const input = document.getElementById("chat-input");
+      const send = document.querySelector(".assistant-dock .chat-send");
+      if (badge) badge.hidden = true;
+      if (input) input.disabled = false;
+      if (send) send.disabled = false;
     }
 
     const FLOOD_SPOTS = [
@@ -3116,12 +3164,10 @@
     }
 
     async function handleChatSubmit(e) {
-      beginLoading();
       e.preventDefault();
       const input = document.getElementById("chat-input");
       const text = input.value.trim();
       if (!text) {
-        endLoading();
         return;
       }
 
@@ -3135,6 +3181,7 @@
       const state = getUIState();
 
       try {
+        beginChatLoading();
         const res = await fetch(`${API_BASE}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3164,7 +3211,7 @@
         console.error("Error calling /chat", err);
         appendMessage("bot", "Sorry, I couldn't reach the server.");
       } finally {
-        endLoading();
+        endChatLoading();
       }
 
       input.value = "";
