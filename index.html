@@ -1288,6 +1288,141 @@
       padding-left: 1.1rem;
     }
 
+    #change-analysis-footer #summary .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    #change-analysis-footer #summary .summary-card {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      border-radius: 10px;
+      padding: 8px 9px;
+    }
+
+    #change-analysis-footer #summary .summary-card .label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+
+    #change-analysis-footer #summary .summary-card .value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f8fafc;
+      line-height: 1.2;
+    }
+
+    #change-analysis-footer #summary .risk-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 2px;
+      letter-spacing: 0.03em;
+    }
+
+    #change-analysis-footer #summary .risk-pill.low {
+      color: #86efac;
+      background: rgba(22, 163, 74, 0.22);
+    }
+
+    #change-analysis-footer #summary .risk-pill.med {
+      color: #fde047;
+      background: rgba(202, 138, 4, 0.24);
+    }
+
+    #change-analysis-footer #summary .risk-pill.high {
+      color: #fca5a5;
+      background: rgba(220, 38, 38, 0.24);
+    }
+
+    #change-analysis-footer #summary .summary-metrics {
+      display: grid;
+      gap: 7px;
+      margin: 8px 0;
+    }
+
+    #change-analysis-footer #summary .metric-row {
+      display: grid;
+      grid-template-columns: 120px 1fr 44px;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+
+    #change-analysis-footer #summary .metric-label {
+      color: #a5b4fc;
+      white-space: nowrap;
+    }
+
+    #change-analysis-footer #summary .metric-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.92);
+      overflow: hidden;
+      border: 1px solid rgba(71, 85, 105, 0.8);
+    }
+
+    #change-analysis-footer #summary .metric-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      min-width: 2px;
+    }
+
+    #change-analysis-footer #summary .metric-bar.water > span {
+      background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+    }
+
+    #change-analysis-footer #summary .metric-bar.veg > span {
+      background: linear-gradient(90deg, #4ade80, #16a34a);
+    }
+
+    #change-analysis-footer #summary .metric-bar.built > span {
+      background: linear-gradient(90deg, #f97316, #ea580c);
+    }
+
+    #change-analysis-footer #summary .metric-value {
+      text-align: right;
+      color: #e2e8f0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #change-analysis-footer #summary .transition-list {
+      margin-top: 6px;
+      display: grid;
+      gap: 6px;
+    }
+
+    #change-analysis-footer #summary .transition-item {
+      display: grid;
+      grid-template-columns: 1fr 52px;
+      gap: 8px;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.68);
+      border: 1px solid rgba(51, 65, 85, 0.72);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      color: #e2e8f0;
+    }
+
+    #change-analysis-footer #summary .transition-pct {
+      text-align: right;
+      color: #93c5fd;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
     #change-analysis-footer button.secondary {
       margin-top: 0.1rem;
       padding: 0.55rem 1.1rem;
@@ -2765,38 +2900,47 @@
         summaryEl.textContent = "Run Generate to load statistics.";
         return;
       }
-      let html = "<p><strong>Region:</strong> " + (data.region_label || "") + "</p>";
-      html +=
-        "<p><strong>Pixels changed:</strong> " +
-        data.change_percent +
-        "% &middot; <strong>Risk:</strong> " +
-        (data.risk_level || "") +
-        "</p>";
-      if (data.water_loss_percent != null) {
-        html +=
-          '<p class="meta-line" style="margin-top:0.35rem;"><strong>Water loss:</strong> ' +
-          data.water_loss_percent +
-          "% &middot; <strong>Vegetation loss:</strong> " +
-          data.vegetation_loss_percent +
-          "% &middot; <strong>Built change:</strong> " +
-          data.built_change_percent +
-          "%</p>";
-      }
-      html += "<p>" + (data.dynamic_world_note || "") + "</p>";
+      const risk = String(data.risk_level || "").toUpperCase();
+      const toNum = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const clampPct = (v) => Math.max(0, Math.min(100, toNum(v)));
+      const changePct = clampPct(data.change_percent);
+      const waterPct = clampPct(data.water_loss_percent);
+      const vegPct = clampPct(data.vegetation_loss_percent);
+      const builtPct = clampPct(data.built_change_percent);
+
+      let html = "";
+      html += '<div class="summary-grid">';
+      html += '<div class="summary-card"><div class="label">Region</div><div class="value" style="font-size:13px;">' + escapeHtml(data.region_label || "") + "</div></div>";
+      html += '<div class="summary-card"><div class="label">Pixels changed</div><div class="value">' + changePct.toFixed(2) + "%</div></div>";
+      html += '<div class="summary-card"><div class="label">Risk</div><div class="risk-pill ' + riskBadgeClass(risk) + '">' + riskIcon(risk) + " " + escapeHtml(risk || "N/A") + "</div></div>";
+      html += "</div>";
+
+      html += '<div class="summary-metrics">';
+      html += '<div class="metric-row"><span class="metric-label">Water loss</span><div class="metric-bar water"><span style="width:' + waterPct + '%"></span></div><span class="metric-value">' + waterPct.toFixed(2) + "%</span></div>";
+      html += '<div class="metric-row"><span class="metric-label">Vegetation</span><div class="metric-bar veg"><span style="width:' + vegPct + '%"></span></div><span class="metric-value">' + vegPct.toFixed(2) + "%</span></div>";
+      html += '<div class="metric-row"><span class="metric-label">Built change</span><div class="metric-bar built"><span style="width:' + builtPct + '%"></span></div><span class="metric-value">' + builtPct.toFixed(2) + "%</span></div>";
+      html += "</div>";
+
+      html += "<p>" + escapeHtml(data.dynamic_world_note || "") + "</p>";
+
       if (data.top_transitions && data.top_transitions.length) {
-        html += "<p><strong>Top transitions</strong></p><ul>";
-        data.top_transitions.slice(0, 10).forEach((t) => {
+        html += "<p><strong>Top transitions</strong></p><div class=\"transition-list\">";
+        data.top_transitions.slice(0, 8).forEach((t) => {
           html +=
-            "<li>" +
-            t.from_name +
+            '<div class="transition-item"><span>' +
+            escapeHtml(t.from_name) +
             " → " +
-            t.to_name +
-            ": " +
-            t.percent_of_aoi +
-            "%</li>";
+            escapeHtml(t.to_name) +
+            '</span><span class="transition-pct">' +
+            toNum(t.percent_of_aoi).toFixed(2) +
+            "%</span></div>";
         });
-        html += "</ul>";
+        html += "</div>";
       }
+
       summaryEl.innerHTML = html;
     }
 
