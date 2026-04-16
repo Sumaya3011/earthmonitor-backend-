@@ -1265,13 +1265,65 @@
       display: none !important;
     }
 
-    #change-analysis-footer strong {
+    .summary-footer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      flex: 0 0 100%;
+      margin-bottom: 0.35rem;
+    }
+
+    .summary-footer-head strong {
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: #8b9cb5;
       display: block;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .summary-minimize-btn {
+      flex-shrink: 0;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(30, 41, 59, 0.85);
+      color: #e2e8f0;
+      border-radius: 8px;
+      width: 30px;
+      height: 28px;
+      padding: 0;
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .summary-minimize-btn:hover {
+      background: rgba(51, 65, 85, 0.95);
+      border-color: rgba(148, 163, 184, 0.65);
+    }
+
+    #change-analysis-footer .summary-body {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 8px 14px;
+      width: 100%;
+      flex: 0 0 100%;
+    }
+
+    #change-analysis-footer.is-minimized .summary-body {
+      display: none;
+    }
+
+    #change-analysis-footer.is-minimized {
+      padding: 0.55rem 1.1rem 0.6rem;
     }
 
     #change-analysis-footer #summary {
@@ -1452,10 +1504,6 @@
       gap: 8px 14px;
     }
 
-    #change-analysis-footer:not([hidden]) strong {
-      flex: 0 0 100%;
-      margin-bottom: 0.2rem;
-    }
 
     #reportBox {
       display: none;
@@ -1690,6 +1738,10 @@
         display: block;
       }
 
+      #change-analysis-footer:not([hidden]) .summary-body {
+        display: block;
+      }
+
       #change-analysis-footer button.secondary {
         width: 100%;
         margin-top: 0.6rem;
@@ -1911,9 +1963,23 @@
       </aside>
     </div>
     <footer id="change-analysis-footer" hidden>
-      <strong>Summary Analysis</strong>
-      <div id="summary">Run Generate to load statistics.</div>
-      <button type="button" class="secondary" id="btnReport">Generate Report</button>
+      <div class="summary-footer-head">
+        <strong>Summary Analysis</strong>
+        <button
+          type="button"
+          class="summary-minimize-btn"
+          id="btnSummaryMinimize"
+          aria-expanded="true"
+          aria-controls="summary-body"
+          title="Minimize"
+        >
+          −
+        </button>
+      </div>
+      <div id="summary-body" class="summary-body">
+        <div id="summary">Run Generate to load statistics.</div>
+        <button type="button" class="secondary" id="btnReport">Generate Report</button>
+      </div>
     </footer>
     <div id="reportBox" aria-hidden="true">
       <div id="reportInner">
@@ -2954,6 +3020,17 @@
       summaryEl.textContent = "Run Generate to load statistics.";
     }
 
+    function setSummaryPanelMinimized(minimized) {
+      const footer = document.getElementById("change-analysis-footer");
+      const btn = document.getElementById("btnSummaryMinimize");
+      if (!footer || !btn) return;
+      footer.classList.toggle("is-minimized", minimized);
+      btn.setAttribute("aria-expanded", minimized ? "false" : "true");
+      btn.setAttribute("aria-label", minimized ? "Expand summary" : "Minimize summary");
+      btn.setAttribute("title", minimized ? "Expand" : "Minimize");
+      btn.textContent = minimized ? "+" : "−";
+    }
+
     async function loadChangeDetectionStats(state, showLoader = true) {
       if (showLoader) beginLoading();
       try {
@@ -2983,6 +3060,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || res.statusText);
         lastChangeStats = data;
+        setSummaryPanelMinimized(false);
         lastMapData = {
           mode: "change_detection",
           city: data.region_label,
@@ -3018,6 +3096,7 @@
       } catch (err) {
         lastChangeStats = null;
         clearSummaryFromChangeStats();
+        setSummaryPanelMinimized(false);
         const summaryEl = document.getElementById("summary");
         if (summaryEl) {
           summaryEl.textContent = "Error: " + err.message;
@@ -3192,7 +3271,10 @@
         mapGridRoot.classList.add("has-change-row");
         panelB.hidden = false;
         panelC.hidden = false;
-        if (changeFooter) changeFooter.hidden = false;
+        if (changeFooter) {
+          changeFooter.hidden = false;
+          setSummaryPanelMinimized(false);
+        }
         panelA.style.display = "flex";
         panelB.style.display = "flex";
 
@@ -3555,6 +3637,12 @@
     document.getElementById("btnClose").addEventListener("click", () => {
       document.getElementById("reportBox").classList.remove("show");
     });
+    document.getElementById("btnSummaryMinimize").addEventListener("click", () => {
+      const footer = document.getElementById("change-analysis-footer");
+      if (!footer) return;
+      setSummaryPanelMinimized(!footer.classList.contains("is-minimized"));
+    });
+
     document.getElementById("btnReport").addEventListener("click", async () => {
       beginLoading();
       try {
