@@ -1769,9 +1769,270 @@
         margin-top: 0.6rem;
       }
     }
+
+    /* —— Welcome splash (first visit) —— */
+    html.welcome-already-seen .welcome-overlay {
+      display: none !important;
+      pointer-events: none;
+    }
+
+    .welcome-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: max(16px, env(safe-area-inset-top)) 24px 24px;
+      background:
+        radial-gradient(ellipse 120% 90% at 50% -10%, rgba(37, 99, 235, 0.35), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 100% 100%, rgba(5, 150, 105, 0.28), transparent 50%),
+        linear-gradient(168deg, #020617 0%, #0b1224 45%, #020617 100%);
+      overflow: hidden;
+      transition: opacity 0.55s ease, visibility 0.55s ease;
+    }
+
+    .welcome-overlay::before {
+      content: "";
+      position: absolute;
+      inset: -25%;
+      background:
+        radial-gradient(circle at 25% 35%, rgba(59, 130, 246, 0.14) 0%, transparent 42%),
+        radial-gradient(circle at 75% 65%, rgba(16, 185, 129, 0.12) 0%, transparent 42%);
+      animation: welcome-aurora 16s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+
+    @keyframes welcome-aurora {
+      0% {
+        transform: translate(-3%, 2%) scale(1);
+        opacity: 0.85;
+      }
+      100% {
+        transform: translate(3%, -2%) scale(1.06);
+        opacity: 1;
+      }
+    }
+
+    .welcome-overlay--leaving {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .welcome-card {
+      position: relative;
+      text-align: center;
+      max-width: 460px;
+      z-index: 1;
+    }
+
+    .welcome-logo-wrap {
+      position: relative;
+      width: min(240px, 56vw);
+      height: min(240px, 56vw);
+      margin: 0 auto 1.1rem;
+    }
+
+    .welcome-orbit {
+      position: absolute;
+      inset: -6%;
+      border-radius: 50%;
+      border: 1px solid rgba(129, 140, 248, 0.4);
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+      animation: welcome-orbit-spin 22s linear infinite;
+      pointer-events: none;
+    }
+
+    .welcome-orbit--delayed {
+      inset: 2%;
+      border-color: rgba(56, 189, 248, 0.28);
+      animation-duration: 32s;
+      animation-direction: reverse;
+    }
+
+    @keyframes welcome-orbit-spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .welcome-globe-svg {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      filter: drop-shadow(0 0 28px rgba(56, 189, 248, 0.38)) drop-shadow(0 0 48px rgba(99, 102, 241, 0.22));
+      animation: welcome-float 5.5s ease-in-out infinite;
+    }
+
+    @keyframes welcome-float {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    .welcome-title {
+      font-size: clamp(2rem, 6.5vw, 2.85rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.08;
+      margin-bottom: 0.45rem;
+      background: linear-gradient(102deg, #7dd3fc 0%, #a5b4fc 38%, #5eead4 78%, #86efac 100%);
+      background-size: 180% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: welcome-title-shift 10s ease-in-out infinite;
+    }
+
+    @keyframes welcome-title-shift {
+      0%,
+      100% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    .welcome-tagline {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      margin-bottom: 1.65rem;
+      letter-spacing: 0.03em;
+    }
+
+    .welcome-cta {
+      appearance: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.72rem 2.1rem;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #f8fafc;
+      background: linear-gradient(135deg, #2563eb, #4f46e5 45%, #0d9488);
+      background-size: 200% 200%;
+      box-shadow:
+        0 4px 28px rgba(59, 130, 246, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      animation: welcome-cta-shift 5s ease infinite;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .welcome-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 36px rgba(59, 130, 246, 0.55);
+    }
+
+    .welcome-cta:focus-visible {
+      outline: 2px solid #93c5fd;
+      outline-offset: 3px;
+    }
+
+    @keyframes welcome-cta-shift {
+      0%,
+      100% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    .welcome-hint {
+      margin-top: 1rem;
+      font-size: 0.72rem;
+      color: #64748b;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .welcome-overlay::before,
+      .welcome-orbit,
+      .welcome-orbit--delayed,
+      .welcome-globe-svg,
+      .welcome-title,
+      .welcome-cta {
+        animation: none !important;
+      }
+    }
   </style>
+  <script>
+    try {
+      if (localStorage.getItem("earthmonitor_welcome_seen_v1") === "1") {
+        document.documentElement.classList.add("welcome-already-seen");
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body>
+  <div
+    id="welcome-overlay"
+    class="welcome-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="welcome-title"
+    aria-describedby="welcome-desc"
+  >
+    <div class="welcome-card">
+      <div class="welcome-logo-wrap" aria-hidden="true">
+        <div class="welcome-orbit"></div>
+        <div class="welcome-orbit welcome-orbit--delayed"></div>
+        <svg class="welcome-globe-svg" viewBox="0 0 200 200" focusable="false">
+          <defs>
+            <linearGradient id="wg-shine" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" />
+              <stop offset="45%" stop-color="#818cf8" />
+              <stop offset="100%" stop-color="#34d399" />
+            </linearGradient>
+            <linearGradient id="wg-ocean" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#0e7490" />
+              <stop offset="100%" stop-color="#0c4a6e" />
+            </linearGradient>
+            <radialGradient id="wg-glow" cx="35%" cy="30%" r="65%">
+              <stop offset="0%" stop-color="rgba(125, 211, 252, 0.45)" />
+              <stop offset="100%" stop-color="transparent" />
+            </radialGradient>
+          </defs>
+          <circle cx="100" cy="100" r="80" fill="url(#wg-ocean)" stroke="url(#wg-shine)" stroke-width="2.2" />
+          <circle cx="100" cy="100" r="80" fill="url(#wg-glow)" />
+          <g stroke="rgba(148, 163, 184, 0.28)" stroke-width="1" fill="none">
+            <ellipse cx="100" cy="100" rx="80" ry="26" />
+            <ellipse cx="100" cy="100" rx="80" ry="46" />
+            <ellipse cx="100" cy="100" rx="80" ry="66" />
+            <path d="M20 100h160" />
+            <path d="M100 20v160" />
+            <ellipse cx="100" cy="100" rx="26" ry="80" />
+            <ellipse cx="100" cy="100" rx="46" ry="80" />
+            <ellipse cx="100" cy="100" rx="66" ry="80" />
+          </g>
+          <circle cx="100" cy="100" r="80" fill="none" stroke="url(#wg-shine)" stroke-width="1.5" opacity="0.55" />
+          <path
+            d="M 28 100 Q 100 72 172 100"
+            fill="none"
+            stroke="url(#wg-shine)"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            opacity="0.85"
+          >
+            <animate attributeName="opacity" values="0.35;1;0.35" dur="2.8s" repeatCount="indefinite" />
+          </path>
+        </svg>
+      </div>
+      <h1 id="welcome-title" class="welcome-title">EarthMonitor</h1>
+      <p id="welcome-desc" class="welcome-tagline">Dynamic World · Earth Engine · satellite insight</p>
+      <button type="button" class="welcome-cta" id="welcome-continue-btn">Enter app</button>
+      <p class="welcome-hint">Press Esc or click outside to close</p>
+    </div>
+  </div>
   <div class="app-root">
     <header class="site-header">
       <div class="site-header-inner">
@@ -3820,6 +4081,55 @@
     updateDateUIForMode();
     updateVideoToolsVisibility();
     syncChangeModeLegends(currentMode() === "change_detection");
+
+    (function initWelcomeOverlay() {
+      const overlay = document.getElementById("welcome-overlay");
+      const btn = document.getElementById("welcome-continue-btn");
+      if (!overlay) return;
+      const KEY = "earthmonitor_welcome_seen_v1";
+      function onWelcomeEsc(e) {
+        if (e.key !== "Escape") return;
+        dismiss();
+      }
+      function dismiss() {
+        if (overlay.classList.contains("welcome-overlay--leaving")) return;
+        document.removeEventListener("keydown", onWelcomeEsc);
+        overlay.classList.add("welcome-overlay--leaving");
+        try {
+          localStorage.setItem(KEY, "1");
+        } catch (e) {}
+        document.documentElement.classList.add("welcome-already-seen");
+        let finished = false;
+        function finish() {
+          if (finished) return;
+          finished = true;
+          clearTimeout(fallback);
+          overlay.removeEventListener("transitionend", onTransitionEnd);
+          overlay.setAttribute("hidden", "");
+          overlay.setAttribute("aria-hidden", "true");
+        }
+        function onTransitionEnd(ev) {
+          if (ev.target !== overlay || ev.propertyName !== "opacity") return;
+          finish();
+        }
+        const fallback = setTimeout(finish, 800);
+        overlay.addEventListener("transitionend", onTransitionEnd);
+      }
+      if (document.documentElement.classList.contains("welcome-already-seen")) {
+        overlay.setAttribute("hidden", "");
+        overlay.setAttribute("aria-hidden", "true");
+        return;
+      }
+      if (btn) {
+        btn.addEventListener("click", dismiss);
+        requestAnimationFrame(() => btn.focus());
+      }
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) dismiss();
+      });
+      document.addEventListener("keydown", onWelcomeEsc);
+    })();
+
     loadMapFromBackend();
 
     window.addEventListener("resize", () => {
