@@ -360,21 +360,20 @@
       }
     }
 
-    /* Row 3: map controls */
+    /* Left-side controls window */
     .site-header-controls {
+      width: 340px;
+      min-width: 300px;
+      height: calc(100dvh - 220px);
+      min-height: 420px;
+      overflow-y: auto;
+      padding: 10px;
+      border-right: 1px solid rgba(51, 65, 85, 0.78);
+      background: rgba(2, 6, 23, 0.82);
       display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      gap: 10px 14px;
-      padding-top: 12px;
-      margin-top: 8px;
-      border-top: 1px solid rgba(51, 65, 85, 0.55);
-    }
-
-    @media (min-width: 900px) {
-      .site-header-controls {
-        align-items: center;
-      }
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: thin;
     }
 
     .monitor-toolbar-label {
@@ -384,9 +383,7 @@
       letter-spacing: 0.08em;
       color: var(--text-muted);
       margin: 0;
-      flex: 0 0 auto;
-      align-self: center;
-      padding-bottom: 2px;
+      padding: 2px 4px 0;
     }
 
     .monitor-toolbar {
@@ -394,7 +391,7 @@
       flex-direction: column;
       align-items: stretch;
       gap: 10px;
-      flex: 1;
+      flex: 1 1 auto;
       min-width: 0;
     }
 
@@ -407,10 +404,7 @@
       background: rgba(2, 6, 23, 0.82);
       border: 1px solid rgba(71, 85, 105, 0.92);
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
-      align-self: flex-start;
-      position: sticky;
-      top: 0;
-      z-index: 20;
+      width: 100%;
     }
 
     .monitor-radio {
@@ -452,9 +446,9 @@
     }
 
     .toolbar-fields {
-      display: grid;
-      grid-template-columns: minmax(260px, 1.35fr) minmax(220px, 1fr);
-      align-items: start;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
       gap: 10px;
       width: 100%;
       min-width: 0;
@@ -485,38 +479,21 @@
     }
 
     #video-tools.video-inline {
-      grid-column: 1 / -1;
+      width: 100%;
+      min-width: 0;
     }
 
-    .toolbar-fields.change-mode-layout {
-      grid-template-columns: minmax(250px, 1fr) minmax(250px, 1fr);
-      align-items: stretch;
+    @media (max-width: 1100px) {
+      .site-header-controls {
+        width: 300px;
+        min-width: 280px;
+      }
     }
 
-    .toolbar-fields.change-mode-layout #date-controls-row {
-      grid-column: 1;
-      grid-row: 1;
-    }
-
-    .toolbar-fields.change-mode-layout .city-field {
-      grid-column: 1;
-      grid-row: 2;
-    }
-
-    .toolbar-fields.change-mode-layout .change-presets-panel {
-      grid-column: 2;
-      grid-row: 1 / span 2;
-      display: block;
-      min-height: 100%;
-    }
-
-    .toolbar-fields.change-mode-layout .change-presets-panel .change-presets {
-      margin-bottom: 0;
-    }
-
-    @media (max-width: 980px) {
-      .toolbar-fields {
-        grid-template-columns: 1fr;
+    @media (max-width: 900px) {
+      .site-header-controls {
+        width: 260px;
+        min-width: 240px;
       }
     }
 
@@ -684,10 +661,13 @@
       position: relative;
       display: flex;
       flex-direction: column;
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .workspace-row {
-      display: block;
+      display: flex;
+      align-items: stretch;
       flex: 1 1 auto;
       min-height: 0;
     }
@@ -814,6 +794,17 @@
     }
 
     @media (max-width: 840px) {
+      .workspace-row {
+        display: block;
+      }
+      .site-header-controls {
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        min-height: 0;
+        border-right: none;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.78);
+      }
       .app-root.chat-dock-open .assistant-dock {
         width: 100%;
         min-width: 100%;
@@ -1510,10 +1501,14 @@
           </div>
         </div>
 
-        <div class="site-header-controls">
-          <span class="monitor-toolbar-label">Map controls</span>
-          <div class="monitor-toolbar">
-            <div class="mode-segments" role="radiogroup" aria-label="Analysis mode">
+      </div>
+    </header>
+
+    <div class="workspace-row">
+      <div class="site-header-controls">
+        <span class="monitor-toolbar-label">Map controls</span>
+        <div class="monitor-toolbar">
+          <div class="mode-segments" role="radiogroup" aria-label="Analysis mode">
             <label class="monitor-radio">
               <input type="radio" name="mode" value="home" checked />
               <span>Home</span>
@@ -1530,8 +1525,14 @@
               <input type="radio" name="mode" value="prediction" />
               <span>Prediction</span>
             </label>
+          </div>
+          <div class="toolbar-fields">
+            <div class="toolbar-field change-presets-panel" id="change-presets-panel">
+              <div class="change-presets">
+                <div class="field-caption">Quick change-detection states (5): tap one to load instantly.</div>
+                <div class="preset-grid" id="changePresetGrid"></div>
+              </div>
             </div>
-            <div class="toolbar-fields">
             <div class="toolbar-field" id="date-controls-row">
               <label>Dates</label>
               <div class="year-row">
@@ -1570,12 +1571,6 @@
                 <button type="button" id="region-chip-clear" title="Clear region and return to world view">×</button>
               </div>
             </div>
-            <div class="toolbar-field change-presets-panel" id="change-presets-panel">
-              <div class="change-presets">
-                <div class="field-caption">Quick change-detection states (5): tap one to load instantly.</div>
-                <div class="preset-grid" id="changePresetGrid"></div>
-              </div>
-            </div>
             <div id="video-tools" class="video-inline" style="display:none;">
               <label>Time series video</label>
               <div class="video-cadence-row" role="radiogroup" aria-label="Video frame cadence">
@@ -1605,13 +1600,9 @@
                 Download video
               </a>
             </div>
-            </div>
           </div>
         </div>
       </div>
-    </header>
-
-    <div class="workspace-row">
       <main class="map-stage">
         <div class="map-container">
           <div class="map-grid" id="map-grid-root">
@@ -2169,7 +2160,6 @@
       const bBox = document.getElementById("dateB-container");
       const presetsWrap = document.querySelector(".change-presets");
       const presetsPanel = document.getElementById("change-presets-panel");
-      const toolbarFields = document.querySelector(".toolbar-fields");
       const windowWrap = document.getElementById("change-window-wrap");
       if (mode === "home") {
         bBox.style.display = "none";
@@ -2179,7 +2169,6 @@
       const showChangeOnly = mode === "change_detection";
       if (presetsWrap) presetsWrap.style.display = showChangeOnly ? "block" : "none";
       if (presetsPanel) presetsPanel.style.display = showChangeOnly ? "block" : "none";
-      if (toolbarFields) toolbarFields.classList.toggle("change-mode-layout", showChangeOnly);
       if (windowWrap) windowWrap.style.display = showChangeOnly ? "block" : "none";
     }
 
