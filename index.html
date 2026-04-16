@@ -1906,52 +1906,8 @@
     .welcome-tagline {
       color: #94a3b8;
       font-size: 0.95rem;
-      margin-bottom: 1.65rem;
+      margin-bottom: 0;
       letter-spacing: 0.03em;
-    }
-
-    .welcome-cta {
-      appearance: none;
-      border: none;
-      cursor: pointer;
-      padding: 0.72rem 2.1rem;
-      border-radius: 999px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: #f8fafc;
-      background: linear-gradient(135deg, #2563eb, #4f46e5 45%, #0d9488);
-      background-size: 200% 200%;
-      box-shadow:
-        0 4px 28px rgba(59, 130, 246, 0.42),
-        inset 0 1px 0 rgba(255, 255, 255, 0.12);
-      animation: welcome-cta-shift 5s ease infinite;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .welcome-cta:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 36px rgba(59, 130, 246, 0.55);
-    }
-
-    .welcome-cta:focus-visible {
-      outline: 2px solid #93c5fd;
-      outline-offset: 3px;
-    }
-
-    @keyframes welcome-cta-shift {
-      0%,
-      100% {
-        background-position: 0% 50%;
-      }
-      50% {
-        background-position: 100% 50%;
-      }
-    }
-
-    .welcome-hint {
-      margin-top: 1rem;
-      font-size: 0.72rem;
-      color: #64748b;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1959,8 +1915,7 @@
       .welcome-orbit,
       .welcome-orbit--delayed,
       .welcome-globe-svg,
-      .welcome-title,
-      .welcome-cta {
+      .welcome-title {
         animation: none !important;
       }
     }
@@ -2029,8 +1984,6 @@
       </div>
       <h1 id="welcome-title" class="welcome-title">EarthMonitor</h1>
       <p id="welcome-desc" class="welcome-tagline">Dynamic World · Earth Engine · satellite insight</p>
-      <button type="button" class="welcome-cta" id="welcome-continue-btn">Enter app</button>
-      <p class="welcome-hint">Press Esc or click outside to close</p>
     </div>
   </div>
   <div class="app-root">
@@ -4084,15 +4037,20 @@
 
     (function initWelcomeOverlay() {
       const overlay = document.getElementById("welcome-overlay");
-      const btn = document.getElementById("welcome-continue-btn");
       if (!overlay) return;
       const KEY = "earthmonitor_welcome_seen_v1";
+      const AUTO_MS = 3000;
+      let autoTimer = null;
       function onWelcomeEsc(e) {
         if (e.key !== "Escape") return;
         dismiss();
       }
       function dismiss() {
         if (overlay.classList.contains("welcome-overlay--leaving")) return;
+        if (autoTimer) {
+          clearTimeout(autoTimer);
+          autoTimer = null;
+        }
         document.removeEventListener("keydown", onWelcomeEsc);
         overlay.classList.add("welcome-overlay--leaving");
         try {
@@ -4120,14 +4078,8 @@
         overlay.setAttribute("aria-hidden", "true");
         return;
       }
-      if (btn) {
-        btn.addEventListener("click", dismiss);
-        requestAnimationFrame(() => btn.focus());
-      }
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) dismiss();
-      });
       document.addEventListener("keydown", onWelcomeEsc);
+      autoTimer = setTimeout(dismiss, AUTO_MS);
     })();
 
     loadMapFromBackend();
