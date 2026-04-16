@@ -677,12 +677,45 @@
       padding: 2px 2px 0;
     }
 
+    .assistant-head-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
     .assistant-dock-title {
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: #cbd5e1;
+    }
+
+    .chat-loading {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      color: #93c5fd;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .chat-loading.show {
+      display: inline-flex;
+    }
+
+    .chat-loading-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #60a5fa;
+      box-shadow: 0 0 8px rgba(96, 165, 250, 0.85);
+      animation: pulse-dot 1.25s ease-in-out infinite;
+      flex-shrink: 0;
     }
 
     .assistant-dock-close {
@@ -726,28 +759,6 @@
       display: flex;
       gap: 8px;
       align-items: center;
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-
-    .chat-loading-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 10px;
-      color: #93c5fd;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .chat-loading-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      border: 2px solid rgba(147, 197, 253, 0.45);
-      border-top-color: #60a5fa;
-      animation: spin 0.8s linear infinite;
       flex-shrink: 0;
     }
 
@@ -1548,7 +1559,13 @@
       </main>
       <aside class="assistant-dock" id="assistant-dock" aria-label="AI Help Assistant">
         <div class="assistant-dock-head">
-          <span class="assistant-dock-title">AI Help</span>
+          <div class="assistant-head-left">
+            <span class="assistant-dock-title">AI Help</span>
+            <span class="chat-loading" id="chat-loading-indicator" aria-live="polite">
+              <span class="chat-loading-dot"></span>
+              <span>Thinking</span>
+            </span>
+          </div>
           <button type="button" class="assistant-dock-close" id="help-close-btn">Close</button>
         </div>
         <div class="chat-messages" id="chat-messages">
@@ -1567,10 +1584,6 @@
             autocomplete="off"
           />
           <button type="submit" class="chat-send">Send</button>
-          <span id="chat-loading-indicator" class="chat-loading-indicator" hidden>
-            <span class="chat-loading-dot"></span>
-            AI thinking...
-          </span>
         </form>
       </aside>
     </div>
@@ -1609,7 +1622,6 @@
     let lastChangeStats = null;
     let lastVideoUrl = null;
     let busyCount = 0;
-    let chatBusyCount = 0;
     let citySuggestTimer = null;
     let citySuggestSeq = 0;
     let citySuggestHighlight = -1;
@@ -1642,24 +1654,13 @@
     }
 
     function beginChatLoading() {
-      chatBusyCount += 1;
-      const badge = document.getElementById("chat-loading-indicator");
-      const input = document.getElementById("chat-input");
-      const send = document.querySelector(".assistant-dock .chat-send");
-      if (badge) badge.hidden = false;
-      if (input) input.disabled = true;
-      if (send) send.disabled = true;
+      const el = document.getElementById("chat-loading-indicator");
+      if (el) el.classList.add("show");
     }
 
     function endChatLoading() {
-      chatBusyCount = Math.max(0, chatBusyCount - 1);
-      if (chatBusyCount !== 0) return;
-      const badge = document.getElementById("chat-loading-indicator");
-      const input = document.getElementById("chat-input");
-      const send = document.querySelector(".assistant-dock .chat-send");
-      if (badge) badge.hidden = true;
-      if (input) input.disabled = false;
-      if (send) send.disabled = false;
+      const el = document.getElementById("chat-loading-indicator");
+      if (el) el.classList.remove("show");
     }
 
     const FLOOD_SPOTS = [
@@ -2399,8 +2400,8 @@
       summaryEl.textContent = "Run Generate to load statistics.";
     }
 
-    async function loadChangeDetectionStats(state) {
-      beginLoading();
+    async function loadChangeDetectionStats(state, showLoader = true) {
+      if (showLoader) beginLoading();
       try {
         const date1 = String(state.date_a || "");
         const date2 = String(state.date_b || "");
@@ -2468,7 +2469,7 @@
           summaryEl.textContent = "Error: " + err.message;
         }
       } finally {
-        endLoading();
+        if (showLoader) endLoading();
       }
     }
 
@@ -2589,8 +2590,8 @@
       if (mapC) mapC.fitBounds(b, fitOpts);
     }
 
-    async function loadChangeDetectionMode(state) {
-      beginLoading();
+    async function loadChangeDetectionMode(state, showLoader = true) {
+      if (showLoader) beginLoading();
       try {
         if (dwLayerA) {
           mapA.removeLayer(dwLayerA);
@@ -2657,7 +2658,7 @@
         mapB.invalidateSize({ pan: false });
         if (mapC) mapC.invalidateSize({ pan: false });
 
-        await loadChangeDetectionStats(state);
+        await loadChangeDetectionStats(state, showLoader);
         syncChangeModeViewportFromStats();
 
         applyChangeModeLayerControls();
@@ -2676,16 +2677,16 @@
       } catch (err) {
         console.error("loadChangeDetectionMode", err);
       } finally {
-        endLoading();
+        if (showLoader) endLoading();
       }
     }
 
-    async function loadMapFromBackend() {
-      beginLoading();
+    async function loadMapFromBackend(showLoader = true) {
+      if (showLoader) beginLoading();
       const state = getUIState();
       if (state.mode === "change_detection") {
-        await loadChangeDetectionMode(state);
-        endLoading();
+        await loadChangeDetectionMode(state, showLoader);
+        if (showLoader) endLoading();
         return;
       }
 
@@ -2848,7 +2849,7 @@
       } catch (err) {
         console.error("Error calling /map-config", err);
       } finally {
-        endLoading();
+        if (showLoader) endLoading();
       }
     }
 
@@ -3170,18 +3171,17 @@
       if (!text) {
         return;
       }
-
-      appendMessage("user", text);
-
-      applyChatTextToControls(text);
-      updateDateUIForMode();
-      updateVideoToolsVisibility();
-      await loadMapFromBackend();
-
-      const state = getUIState();
-
+      beginChatLoading();
       try {
-        beginChatLoading();
+        appendMessage("user", text);
+
+        applyChatTextToControls(text);
+        updateDateUIForMode();
+        updateVideoToolsVisibility();
+        await loadMapFromBackend(false);
+
+        const state = getUIState();
+
         const res = await fetch(`${API_BASE}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
